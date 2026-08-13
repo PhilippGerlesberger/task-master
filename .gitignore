@@ -1,4 +1,7 @@
-node_modules
-dist
+node_modules/
+dist/
 .env
-.vscode
+.env.local
+.vscode/
+.DS_Store
+scripts/
