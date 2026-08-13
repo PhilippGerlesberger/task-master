@@ -1,0 +1,45 @@
+version: "3.8"
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: taskmaster
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: docker/Dockerfile
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+    ports:
+      - "4000:4000"
+    command: ["pnpm", "dev"]
+
+  worker:
+    build:
+      context: ./apps/backend
+      dockerfile: docker/Dockerfile
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+    command: ["pnpm", "run", "worker"]
+
+  frontend:
+    build:
+      context: ./apps/frontend
+      dockerfile: docker/Dockerfile
+    ports:
+      - "5173:5173"
+    command: ["pnpm", "dev"]
+
+volumes:
+  pgdata:
