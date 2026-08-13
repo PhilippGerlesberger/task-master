@@ -3,3 +3,23 @@ packages:
   - "packages/*"
 allowBuilds:
   esbuild: true
+
+# Define a catalog of versions for dependencies that can be shared across the workspace.
+catalog:
+  react: ^19.2.0
+  react-dom: ^19.2.8
+
+  express: ^5.2.1
+  dotenv: ^17.4.2
+  tsx: ^4.23.12
+
+  typescript: ^7.0.2
+  vitest: ^4.1.10
+
+  "vite": "^8.2.1"
+  "@vitejs/plugin-react": "^6.0.5"
+
+  "@types/react": ^19.2.18
+  "@types/react-dom": ^19.2.4
+  "@types/node": ^26.2.0
+  "@types/express": ^5.0.6
