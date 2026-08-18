@@ -13,7 +13,8 @@
   "dependencies": {
     "@taskmaster/shared-types": "workspace:*",
     "express": "catalog:",
-    "dotenv": "catalog:"
+    "dotenv": "catalog:",
+    "ulid": "3.0.2"
   },
   "devDependencies": {
     "typescript": "catalog:",
