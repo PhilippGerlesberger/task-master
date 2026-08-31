@@ -1,8 +1,23 @@
+# dependencies
 node_modules/
-dist/
+
+# environment
 .env
 .env.local
+
+# editor
 .vscode/
 .DS_Store
+
+# generated artifacts
+**/*.js
+**/*.d.ts
+**/*.tsbuildinfo
+
+# build output
+**/dist/
+**/coverage/
+
+# project folders not tracked (temporary)
 scripts/
 docs/
