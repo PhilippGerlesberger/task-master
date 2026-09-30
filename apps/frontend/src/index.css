@@ -1,12 +1,157 @@
-html, body, #root {
-  height: 100%;
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
   margin: 0;
+  min-height: 100%;
 }
 
 body {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  background: radial-gradient(circle at 20% 20%, #fff7ed 0%, #ffedd5 38%, #fed7aa 100%);
+  color: #431407;
+}
+
+.app-shell {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem 1rem 3rem;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: 2rem;
+}
+
+.hero p {
+  margin-top: 0.5rem;
+  color: #7c2d12;
+}
+
+.forms-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.card {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(251, 146, 60, 0.35);
+  border-radius: 14px;
+  padding: 1rem;
+  box-shadow: 0 12px 32px rgba(154, 52, 18, 0.08);
+}
+
+.card h2 {
+  margin-top: 0;
+  margin-bottom: 0.75rem;
+  font-size: 1.1rem;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+input,
+select,
+button {
+  border-radius: 10px;
+  border: 1px solid #fdba74;
+  padding: 0.62rem 0.72rem;
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+  background: linear-gradient(90deg, #f97316, #ea580c);
+  color: #fff;
+  font-weight: 700;
+}
+
+.tree {
+  margin-top: 1rem;
+}
+
+.root-list,
+.children-list,
+.task-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+
+.children-list {
+  padding-left: 1rem;
+  border-left: 2px dashed #fed7aa;
+  margin-left: 0.5rem;
+}
+
+.list-node {
+  margin-top: 0.65rem;
+}
+
+.list-header {
   display: flex;
   align-items: center;
-  justify-content: center;
-  background: #f7f7fb;
-  color: #111827;
+  justify-content: space-between;
+  background: rgba(255, 237, 213, 0.85);
+  border: 1px solid #fdba74;
+  border-radius: 10px;
+  padding: 0.45rem 0.6rem;
+}
+
+.list-meta {
+  font-size: 0.82rem;
+  color: #9a3412;
+}
+
+.task-list {
+  margin-top: 0.4rem;
+  padding-left: 0.4rem;
+}
+
+.task-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.32rem 0.45rem;
+  border-radius: 8px;
+}
+
+.prio {
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+}
+
+.prio.p1 {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.prio.p2 {
+  background: #cffafe;
+  color: #155e75;
+}
+
+.prio.p3 {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.prio.p4 {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.prio.p5 {
+  background: #e9d5ff;
+  color: #6b21a8;
 }
