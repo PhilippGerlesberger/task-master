@@ -11,13 +11,17 @@ export abstract class AbstractBacklogItem {
     private _updatedAt: Date;
 
     protected constructor(props: {
-        id: ItemId; title: string; createdAt: Date
+        id: ItemId;
+        title: string;
+        createdAt: Date;
+        updatedAt?: Date;
+        archived?: boolean;
     }) {
         this.id = props.id;
         this.createdAt = props.createdAt;
         this._title = props.title.trim();
-        this._archived = false;
-        this._updatedAt = props.createdAt;
+        this._archived = props.archived ?? false;
+        this._updatedAt = props.updatedAt ?? props.createdAt;
     }
 
     get title(): string { return this._title; }

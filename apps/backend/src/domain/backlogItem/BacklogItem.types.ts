@@ -8,7 +8,6 @@ export interface CreateTaskItemInput {
     title: string;
     description?: string;
     listIds: ItemId[];
-    parentId?: ItemId;
     priority?: Priority;
     estimate?: number;
     repetition?: { kind: RepetitionKind; interval?: number; count?: number; endDate?: DateKey };

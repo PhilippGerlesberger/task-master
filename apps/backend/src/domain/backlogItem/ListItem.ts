@@ -15,12 +15,14 @@ export class ListItem extends AbstractBacklogItem {
         id: ItemId;
         title: string;
         createdAt: Date;
-        description?: string;
-        parentId?: ItemId
+        updatedAt?: Date;
+        archived?: boolean;
+        parentListId?: ItemId;
+        childListIds?: ItemId[];
     }) {
         super(props);
-        this._childListIds = [];
-        this._parentListId = props.parentId;
+        this._childListIds = [...(props.childListIds ?? [])];
+        this._parentListId = props.parentListId;
     }
 
     static create(input: CreateListItemInput): ListItem {
@@ -29,8 +31,30 @@ export class ListItem extends AbstractBacklogItem {
             id: generateItemId(),
             title: input.title,
             createdAt: new Date(),
-            description: input.description,
-            parentId: input.parentId
+            updatedAt: new Date(),
+            archived: false,
+            parentListId: input.parentId,
+            childListIds: []
+        });
+    }
+
+    static reconstitute(props: {
+        id: ItemId;
+        title: string;
+        createdAt: Date;
+        updatedAt: Date;
+        archived: boolean;
+        parentListId?: ItemId;
+        childListIds?: ItemId[];
+    }): ListItem {
+        return new ListItem({
+            id: props.id,
+            title: props.title,
+            createdAt: props.createdAt,
+            updatedAt: props.updatedAt,
+            archived: props.archived,
+            parentListId: props.parentListId,
+            childListIds: props.childListIds ?? []
         });
     }
 

@@ -1,5 +1,6 @@
 import type { CreateTaskItemInput, CreateListItemInput } from "./BacklogItem.types.js";
 import { DomainError } from "../shared/errors.js";
+import { RepetitionKind } from "../shared/types.js";
 
 function validateTitle(title: string): void {
     if (!title || title.trim().length === 0) {
@@ -15,5 +16,9 @@ export function validateTaskCreation(input: CreateTaskItemInput): void {
     validateTitle(input.title);
     if (!input.listIds || input.listIds.length === 0) {
         throw new DomainError("A task must belong to at least one list.");
+    }
+
+    if (input.repetition && input.repetition.kind !== RepetitionKind.NONE && !input.schedule?.startDate) {
+        throw new DomainError("A repeating task requires a schedule start date as anchor.");
     }
 }

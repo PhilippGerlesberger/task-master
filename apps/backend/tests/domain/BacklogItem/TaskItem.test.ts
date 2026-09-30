@@ -38,4 +38,20 @@ describe("TaskItem list membership", () => {
         task.addToList(listId);
         expect(task.listIds).toEqual([listId]);
     });
+
+    it("is idempotent when removing a non-existing list", () => {
+        const task = TaskItem.create({ title: "X", listIds: [listId] });
+        task.removeFromList("list-2" as ItemId);
+        expect(task.listIds).toEqual([listId]);
+    });
+
+    it("requires a schedule startDate for repeating tasks", () => {
+        expect(() =>
+            TaskItem.create({
+                title: "Repeat task",
+                listIds: [listId],
+                repetition: { kind: RepetitionKind.WEEKLY }
+            })
+        ).toThrow(DomainError);
+    });
 });

@@ -25,10 +25,19 @@ export class TaskItem extends AbstractBacklogItem {
     private _persistentCompleted: boolean;
 
     private constructor(props: {
-        id: ItemId; title: string; createdAt: Date;
-        description?: string | undefined; listIds: ItemId[];
-        priority?: Priority; estimate?: number;
-        repetition: RepetitionPattern; schedule?: Schedule;
+        id: ItemId;
+        title: string;
+        createdAt: Date;
+        updatedAt?: Date;
+        archived?: boolean;
+        description?: string | undefined;
+        listIds: ItemId[];
+        priority?: Priority;
+        estimate?: number;
+        repetition: RepetitionPattern;
+        schedule?: Schedule;
+        status: ItemStatus;
+        persistentCompleted: boolean;
     }) {
         super(props);
         this._description = props.description;
@@ -40,8 +49,8 @@ export class TaskItem extends AbstractBacklogItem {
         this._repetition = props.repetition;
         this._schedule = props.schedule;
 
-        this._status = ItemStatus.TODO;
-        this._persistentCompleted = false;
+        this._status = props.status;
+        this._persistentCompleted = props.persistentCompleted;
     }
 
     static create(input: CreateTaskItemInput): TaskItem {
@@ -50,6 +59,8 @@ export class TaskItem extends AbstractBacklogItem {
             id: generateItemId(),
             title: input.title,
             createdAt: new Date(),
+            updatedAt: new Date(),
+            archived: false,
 
             description: input.description,
             listIds: input.listIds,
@@ -60,7 +71,41 @@ export class TaskItem extends AbstractBacklogItem {
             repetition: input.repetition
               ? RepetitionPattern.create(input.repetition)
               : RepetitionPattern.create({ kind: RepetitionKind.NONE }),
-            schedule: input.schedule ? Schedule.create(input.schedule) : undefined
+            schedule: input.schedule ? Schedule.create(input.schedule) : undefined,
+            status: ItemStatus.TODO,
+            persistentCompleted: false
+        });
+    }
+
+    static reconstitute(props: {
+        id: ItemId;
+        title: string;
+        createdAt: Date;
+        updatedAt: Date;
+        archived: boolean;
+        description?: string;
+        listIds: ItemId[];
+        priority?: Priority;
+        estimate?: number;
+        repetition: RepetitionPattern;
+        schedule?: Schedule;
+        status: ItemStatus;
+        persistentCompleted: boolean;
+    }): TaskItem {
+        return new TaskItem({
+            id: props.id,
+            title: props.title,
+            createdAt: props.createdAt,
+            updatedAt: props.updatedAt,
+            archived: props.archived,
+            description: props.description,
+            listIds: props.listIds,
+            priority: props.priority,
+            estimate: props.estimate,
+            repetition: props.repetition,
+            schedule: props.schedule,
+            status: props.status,
+            persistentCompleted: props.persistentCompleted
         });
     }
 
@@ -71,14 +116,23 @@ export class TaskItem extends AbstractBacklogItem {
     get listIds(): readonly ItemId[] { return this._listIds; }
 
     addToList(listId: ItemId): void {
-        if (!this._listIds.includes(listId)) this._listIds.push(listId);
+        if (this._listIds.includes(listId)) {
+            return;
+        }
+
+        this._listIds.push(listId);
         this.touch();
     }
 
     removeFromList(listId: ItemId): void {
+        if (!this._listIds.includes(listId)) {
+            return;
+        }
+
         if (this._listIds.length === 1 && this._listIds[0] === listId) {
             throw new DomainError("A task must belong to at least one list. Move it to another list first.");
         }
+
         this._listIds = this._listIds.filter(id => id !== listId);
         this.touch();
     }
