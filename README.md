@@ -19,7 +19,8 @@ Run `npm run typecheck` to run TypeScript type checking.
 ## CI (GitHub Actions)
 - Workflow file: `.github/workflows/ci.yml`
 - Current test scope in CI: backend tests (`apps/backend/tests`)
-- Build and typecheck run for the workspace, tests currently run only for backend.
+- CI enforces backend coverage thresholds at 80% (statements, branches, functions, lines).
+- Build and typecheck run for the workspace; test coverage checks currently run only for backend.
 - When frontend/SW tests are added, extend CI with additional test steps (e.g. `pnpm --filter @app/frontend exec vitest --run`).
 
 ## Notes
