@@ -3,7 +3,7 @@ import { Backlog } from "../../../src/domain/backlog/Backlog.js";
 import { ListItem } from "../../../src/domain/backlogItem/ListItem.js";
 import { TaskItem } from "../../../src/domain/backlogItem/TaskItem.js";
 import { DomainError } from "../../../src/domain/shared/errors.js";
-import type { ItemId } from "../../../src/domain/shared/types.js";
+import { ItemStatus, type ItemId } from "../../../src/domain/shared/types.js";
 
 function createList(title: string, parentId?: ItemId) {
     return ListItem.create({ title, parentId });
@@ -174,5 +174,148 @@ describe("Backlog", () => {
 
         expect(backlog.getItem(list.id)).toBe(list);
         expect(backlog.getItem(task.id)).toBe(task);
+    });
+
+    it("returns empty children for a missing list", () => {
+        const backlog = new Backlog();
+        expect(backlog.getChildren("missing-list" as ItemId)).toEqual([]);
+    });
+
+    it("ignores removal when item does not exist", () => {
+        const backlog = new Backlog();
+        expect(() => backlog.removeItem("missing-item" as ItemId)).not.toThrow();
+    });
+
+    it("rejects deleting a list that still has child lists", () => {
+        const backlog = new Backlog();
+        const parent = createList("Parent");
+        const child = createList("Child", parent.id);
+
+        backlog.addItem(parent);
+        backlog.addItem(child);
+
+        expect(() => backlog.removeItem(parent.id)).toThrow(DomainError);
+    });
+
+    it("removes parent references when deleting a child list", () => {
+        const backlog = new Backlog();
+        const parent = createList("Parent");
+        const child = createList("Child", parent.id);
+
+        backlog.addItem(parent);
+        backlog.addItem(child);
+
+        backlog.removeItem(child.id);
+
+        expect(backlog.getChildren(parent.id)).toEqual([]);
+    });
+
+    it("validates task and list existence when assigning tasks", () => {
+        const backlog = new Backlog();
+        const list = createList("Inbox");
+        backlog.addItem(list);
+
+        expect(() => backlog.assignTaskToList("missing-task" as ItemId, list.id)).toThrow(DomainError);
+
+        const task = createTask("Write tests", list.id);
+        backlog.addItem(task);
+
+        expect(() => backlog.assignTaskToList(task.id, "missing-list" as ItemId)).toThrow(DomainError);
+    });
+
+    it("removes task-list assignments when task belongs to multiple lists", () => {
+        const backlog = new Backlog();
+        const listA = createList("Inbox");
+        const listB = createList("Today");
+        const task = createTask("Write tests", listA.id);
+
+        backlog.addItem(listA);
+        backlog.addItem(listB);
+        backlog.addItem(task);
+        backlog.assignTaskToList(task.id, listB.id);
+
+        backlog.removeTaskFromList(task.id, listA.id);
+
+        expect(task.listIds).toEqual([listB.id]);
+    });
+
+    it("validates task and list existence when removing task-list assignments", () => {
+        const backlog = new Backlog();
+        const list = createList("Inbox");
+        const task = createTask("Write tests", list.id);
+        backlog.addItem(list);
+        backlog.addItem(task);
+
+        expect(() => backlog.removeTaskFromList("missing-task" as ItemId, list.id)).toThrow(DomainError);
+        expect(() => backlog.removeTaskFromList(task.id, "missing-list" as ItemId)).toThrow(DomainError);
+    });
+
+    it("validates moveList preconditions", () => {
+        const backlog = new Backlog();
+        const root = createList("Root");
+        backlog.addItem(root);
+
+        expect(() => backlog.moveList("missing-list" as ItemId, root.id)).toThrow(DomainError);
+        expect(() => backlog.moveList(root.id, root.id)).toThrow(DomainError);
+        expect(() => backlog.moveList(root.id, "missing-parent" as ItemId)).toThrow(DomainError);
+    });
+
+    it("rejects moving a list into one of its descendants", () => {
+        const backlog = new Backlog();
+        const root = createList("Root");
+        const child = createList("Child", root.id);
+
+        backlog.addItem(root);
+        backlog.addItem(child);
+
+        expect(() => backlog.moveList(root.id, child.id)).toThrow(DomainError);
+    });
+
+    it("moves a child list back to root when parent is undefined", () => {
+        const backlog = new Backlog();
+        const root = createList("Root");
+        const child = createList("Child", root.id);
+        backlog.addItem(root);
+        backlog.addItem(child);
+
+        backlog.moveList(child.id, undefined);
+
+        expect(child.parentListId).toBeUndefined();
+        expect(backlog.getChildren(root.id)).toEqual([]);
+    });
+
+    it("validates addChildList and removeChildList input lists", () => {
+        const backlog = new Backlog();
+        const root = createList("Root");
+        const child = createList("Child");
+        backlog.addItem(root);
+        backlog.addItem(child);
+
+        expect(() => backlog.addChildList("missing-parent" as ItemId, child.id)).toThrow(DomainError);
+        expect(() => backlog.addChildList(root.id, "missing-child" as ItemId)).toThrow(DomainError);
+        expect(() => backlog.removeChildList("missing-parent" as ItemId, child.id)).toThrow(DomainError);
+        expect(() => backlog.removeChildList(root.id, "missing-child" as ItemId)).toThrow(DomainError);
+    });
+
+    it("updates task status transitions", () => {
+        const backlog = new Backlog();
+        const list = createList("Inbox");
+        const task = createTask("Write tests", list.id);
+        backlog.addItem(list);
+        backlog.addItem(task);
+
+        backlog.updateTaskStatus(task.id, ItemStatus.IN_PROGRESS);
+        expect(task.status).toBe(ItemStatus.IN_PROGRESS);
+
+        backlog.updateTaskStatus(task.id, ItemStatus.DONE);
+        expect(task.status).toBe(ItemStatus.DONE);
+
+        backlog.updateTaskStatus(task.id, ItemStatus.TODO);
+        expect(task.status).toBe(ItemStatus.TODO);
+    });
+
+    it("rejects status updates for missing tasks", () => {
+        const backlog = new Backlog();
+        expect(() => backlog.updateTaskStatus("missing-task" as ItemId, ItemStatus.DONE)).toThrow(DomainError);
     });
 });
