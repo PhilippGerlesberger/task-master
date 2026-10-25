@@ -2,7 +2,9 @@ packages:
   - "apps/*"
   - "packages/*"
 allowBuilds:
+  '@prisma/engines': true
   esbuild: true
+  prisma: true
 
 # Define a catalog of versions for dependencies that can be shared across the workspace.
 catalog:

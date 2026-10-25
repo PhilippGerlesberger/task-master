@@ -1,0 +1,77 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+}
+
+enum RepetitionKind {
+  NONE
+  DAILY
+  WEEKLY
+  MONTHLY
+  YEARLY
+}
+
+enum RepetitionMonthlyAnchor {
+  SAME_DAY
+  END_OF_MONTH
+}
+
+model List {
+  id           String   @id @db.Text
+  title        String   @db.Text
+  parentListId String?  @map("parent_list_id") @db.Text
+  archived     Boolean  @default(false)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @default(now()) @map("updated_at") @db.Timestamptz(3)
+
+  parent   List?    @relation("ListHierarchy", fields: [parentListId], references: [id], onDelete: Restrict)
+  children List[]   @relation("ListHierarchy")
+  taskRefs TaskList[]
+
+  @@map("lists")
+}
+
+model Task {
+  id                      String                  @id @db.Text
+  title                   String                  @db.Text
+  description             String?                 @db.Text
+  status                  TaskStatus              @default(TODO)
+  priority                Int?                    @db.SmallInt
+  estimate                Float?                  @db.DoublePrecision
+  persistentCompleted     Boolean                 @default(false) @map("persistent_completed")
+  archived                Boolean                 @default(false)
+  repetitionKind          RepetitionKind          @default(NONE) @map("repetition_kind")
+  repetitionInterval      Int?                    @map("repetition_interval")
+  repetitionMonthlyAnchor RepetitionMonthlyAnchor? @map("repetition_monthly_anchor")
+  repetitionCount         Int?                    @map("repetition_count")
+  repetitionEndDate       DateTime?               @map("repetition_end_date") @db.Date
+  scheduleStartDate       DateTime?               @map("schedule_start_date") @db.Date
+  scheduleEndDate         DateTime?               @map("schedule_end_date") @db.Date
+  scheduleDefaultEndTime  String?                 @map("schedule_default_end_time") @db.Text
+  createdAt               DateTime                @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt               DateTime                @default(now()) @map("updated_at") @db.Timestamptz(3)
+
+  listRefs TaskList[]
+
+  @@map("tasks")
+}
+
+model TaskList {
+  taskId String @map("task_id") @db.Text
+  listId String @map("list_id") @db.Text
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  list List @relation(fields: [listId], references: [id], onDelete: Restrict)
+
+  @@id([taskId, listId])
+  @@map("task_lists")
+}

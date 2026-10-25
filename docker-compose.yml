@@ -1,45 +1,21 @@
-version: "3.8"
 services:
   postgres:
-    image: postgres:15
+    image: postgres:16
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: taskmaster
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-taskmaster}
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
-
-  backend:
-    build:
-      context: ./apps/backend
-      dockerfile: docker/Dockerfile
-    env_file:
-      - .env
-    depends_on:
-      - postgres
-    ports:
-      - "4000:4000"
-    command: ["pnpm", "dev"]
-
-  worker:
-    build:
-      context: ./apps/backend
-      dockerfile: docker/Dockerfile
-    env_file:
-      - .env
-    depends_on:
-      - postgres
-    command: ["pnpm", "run", "worker"]
-
-  frontend:
-    build:
-      context: ./apps/frontend
-      dockerfile: docker/Dockerfile
-    ports:
-      - "5173:5173"
-    command: ["pnpm", "dev"]
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init/01-create-test-db.sql:/docker-entrypoint-initdb.d/01-create-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-taskmaster}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
 
 volumes:
-  pgdata:
+  postgres_data:
