@@ -41,5 +41,8 @@ jobs:
       - name: Test with coverage threshold
         run: pnpm --filter @app/backend run coverage
 
+      - name: Generate technical documentation
+        run: pnpm docs:generate
+
       - name: Build
         run: pnpm build

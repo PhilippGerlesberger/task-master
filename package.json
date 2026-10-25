@@ -11,6 +11,7 @@
     "typecheck": "pnpm -r run typecheck",
     "test": "pnpm -r run test",
     "coverage": "pnpm -r run coverage",
+    "docs:generate": "pnpm --filter @taskmaster/docs-tooling run generate",
     "clean": "shx rm -rf **/*.tsbuildinfo **/*.js **/*.d.ts **/dist **/coverage"
   },
   "devDependencies": {

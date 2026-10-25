@@ -1,0 +1,13 @@
+{
+  "name": "@taskmaster/docs-tooling",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "typedoc --options ../../typedoc.json"
+  },
+  "devDependencies": {
+    "typedoc": "^0.28.20",
+    "typescript": "5.9.3"
+  }
+}
