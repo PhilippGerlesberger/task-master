@@ -10,10 +10,12 @@
     "preview": "pnpm -r run preview",
     "typecheck": "pnpm -r run typecheck",
     "test": "pnpm -r run test",
+    "coverage": "pnpm -r run coverage",
     "clean": "shx rm -rf **/*.tsbuildinfo **/*.js **/*.d.ts **/dist **/coverage"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
     "shx": "^0.4.0",
     "typescript": "catalog:",
     "vitest": "catalog:"
