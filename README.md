@@ -75,21 +75,6 @@ pnpm --filter @app/backend exec vitest run
 
 `tests/globalSetup.ts` applies `prisma migrate deploy` to `DATABASE_URL_TEST` before tests.
 
-## Import existing JSON data into PostgreSQL
-
-Run once after enabling `PERSISTENCE=postgres`:
-
-```bash
-pnpm --filter @app/backend run db:import-json
-```
-
-- Refuses to import if target DB already contains lists/tasks.
-- Use `--force` to overwrite snapshot:
-
-  ```bash
-  pnpm --filter @app/backend run db:import-json -- --force
-  ```
-
 ## Docker Compose backend + postgres
 
 Start full stack:
