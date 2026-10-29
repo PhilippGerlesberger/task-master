@@ -1,15 +1,19 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import type { PrismaClient } from "@prisma/client";
 import { INBOX_LIST_ID } from "../../../src/domain/shared/constants.js";
 import { ensureInboxList } from "../../../src/infrastructure/postgres/ensureInboxList.js";
 import { canRunPostgresTests, createTestPrismaClient, resetDatabase } from "./testDatabase.js";
 
 const runPostgresSuite = canRunPostgresTests();
-const prisma = runPostgresSuite ? createTestPrismaClient() : undefined;
+let prisma: PrismaClient | undefined;
 
 describe.skipIf(!runPostgresSuite)("ensureInboxList", () => {
     beforeEach(async () => {
-        if (!prisma) {
+        if (!runPostgresSuite) {
             return;
+        }
+        if (!prisma) {
+            prisma = await createTestPrismaClient();
         }
         await resetDatabase(prisma);
     });

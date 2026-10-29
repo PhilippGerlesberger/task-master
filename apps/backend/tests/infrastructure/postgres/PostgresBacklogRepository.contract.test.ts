@@ -7,7 +7,7 @@ const runPostgresSuite = canRunPostgresTests();
 
 if (runPostgresSuite) {
     runBacklogRepositoryContract("PostgresBacklogRepository", async () => {
-        const prisma = createTestPrismaClient();
+        const prisma = await createTestPrismaClient();
         await resetDatabase(prisma);
 
         return {
