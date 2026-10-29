@@ -5,6 +5,7 @@ import { TaskItem } from "../../src/domain/backlogItem/TaskItem.js";
 import type { ItemId } from "../../src/domain/shared/types.js";
 import type { BacklogItem } from "../../src/domain/backlogItem/BacklogItem.types.js";
 import type { IBacklogRepository } from "../../src/application/ports/IBacklogRepository.js";
+import { InfrastructureError } from "../../src/application/errors.js";
 
 function createList(title: string, parentId?: ItemId) {
     return ListItem.create({ title, parentId });
@@ -144,6 +145,23 @@ describe("createApp", () => {
 
             expect(response.statusCode).toBe(400);
             expect(response.json()).toEqual({ message: "Task does not exist." });
+        } finally {
+            await app.close();
+        }
+    });
+
+    it("returns 500 for infrastructure errors without leaking internals", async () => {
+        const repository: IBacklogRepository = {
+            loadBacklogItems: vi.fn().mockRejectedValue(new InfrastructureError("database is offline")),
+            saveBacklogItems: vi.fn().mockResolvedValue(undefined)
+        };
+
+        const app = createApp({ backlogRepository: repository });
+
+        try {
+            const response = await app.inject({ method: "GET", url: "/tasks" });
+            expect(response.statusCode).toBe(500);
+            expect(response.json()).toEqual({ message: "Internal Server Error" });
         } finally {
             await app.close();
         }
