@@ -1,6 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { DomainError } from "../../domain/shared/errors.js";
+import { InfrastructureError } from "../../application/errors.js";
 import type { BacklogItem } from "../../domain/backlogItem/BacklogItem.types.js";
 import { emptyBacklogDocument, toDomain, toPersistence, type JsonBacklogDocument } from "./mappers/backlog.mapper.js";
 
@@ -8,15 +9,30 @@ export class JsonBacklogRepository {
 	constructor(private readonly filePath = resolve(process.cwd(), "data", "backlog.json")) {}
 
 	async loadBacklogItems(): Promise<BacklogItem[]> {
-		const document = await this.readDocument();
-		return toDomain(document);
+		try {
+			const document = await this.readDocument();
+			return toDomain(document);
+		} catch (error) {
+			if (error instanceof InfrastructureError) {
+				throw error;
+			}
+
+			if (error instanceof DomainError) {
+				throw new InfrastructureError("Backlog document contains invalid data.", { cause: error });
+			}
+
+			throw new InfrastructureError("Failed to load backlog document.", { cause: error });
+		}
 	}
 
 	async saveBacklogItems(items: BacklogItem[]): Promise<void> {
-		const document = toPersistence(items);
-
-		await mkdir(dirname(this.filePath), { recursive: true });
-		await writeFile(this.filePath, `${JSON.stringify(document, null, 2)}\n`, "utf8");
+		try {
+			const document = toPersistence(items);
+			await mkdir(dirname(this.filePath), { recursive: true });
+			await writeFile(this.filePath, `${JSON.stringify(document, null, 2)}\n`, "utf8");
+		} catch (error) {
+			throw new InfrastructureError("Failed to write backlog document.", { cause: error });
+		}
 	}
 
 	private async readDocument(): Promise<JsonBacklogDocument> {
@@ -26,10 +42,15 @@ export class JsonBacklogRepository {
 				return emptyBacklogDocument();
 			}
 
-			const parsed = JSON.parse(rawContent) as JsonBacklogDocument;
+			let parsed: JsonBacklogDocument;
+			try {
+				parsed = JSON.parse(rawContent) as JsonBacklogDocument;
+			} catch (error) {
+				throw new InfrastructureError("Backlog document is not valid JSON.", { cause: error });
+			}
 
 			if (parsed.version !== 1 || !Array.isArray(parsed.items)) {
-				throw new DomainError("Unsupported backlog document format.");
+				throw new InfrastructureError("Unsupported backlog document format.");
 			}
 
 			return parsed;
@@ -38,11 +59,11 @@ export class JsonBacklogRepository {
 				return emptyBacklogDocument();
 			}
 
-			if (error instanceof DomainError) {
+			if (error instanceof InfrastructureError) {
 				throw error;
 			}
 
-			throw new DomainError("Failed to read backlog document.");
+			throw new InfrastructureError("Failed to read backlog document.", { cause: error });
 		}
 	}
 
