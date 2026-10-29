@@ -35,6 +35,11 @@ jobs:
       - name: Install deps
         run: pnpm install --frozen-lockfile
 
+      - name: Generate Prisma client
+        run: pnpm --filter @app/backend run db:generate
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/taskmaster?schema=public
+
       - name: Typecheck
         run: pnpm typecheck
 
