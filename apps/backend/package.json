@@ -12,7 +12,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
-    "db:deploy": "prisma migrate deploy"
+    "db:deploy": "prisma migrate deploy",
+    "db:import-json": "tsx tools/import-json-to-postgres.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.3.0",

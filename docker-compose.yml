@@ -16,6 +16,26 @@ services:
       timeout: 5s
       retries: 10
       start_period: 5s
+  backend:
+    build:
+      context: .
+      dockerfile: apps/backend/docker/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      PERSISTENCE: postgres
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-taskmaster}?schema=public
+      DATABASE_URL_TEST: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/taskmaster_test?schema=public
+      SPRINT_LENGTH_DAYS: ${SPRINT_LENGTH_DAYS:-14}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "4000:4000"
+    command: >
+      sh -c "pnpm --filter @app/backend run db:deploy &&
+      pnpm --filter @app/backend run start"
 
 volumes:
   postgres_data:
