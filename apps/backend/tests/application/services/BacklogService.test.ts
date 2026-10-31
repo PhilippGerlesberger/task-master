@@ -8,6 +8,7 @@ import type { ItemId } from "../../../src/domain/shared/types.js";
 import type { IBacklogRepository } from "../../../src/application/ports/IBacklogRepository.js";
 import { ItemStatus, RepetitionKind } from "../../../src/domain/shared/types.js";
 import { RepetitionPattern } from "../../../src/domain/shared/valueObjects.js";
+import { INBOX_LIST_ID } from "../../../src/domain/shared/constants.js";
 
 function createList(title: string) {
     return ListItem.create({ title });
@@ -72,5 +73,33 @@ describe("BacklogService", () => {
         const service = new BacklogService(repository);
 
         await expect(service.loadBacklog()).rejects.toBeInstanceOf(InfrastructureError);
+    });
+
+    it("ensures inbox exists when repository is empty", async () => {
+        const repository: IBacklogRepository = {
+            loadBacklogItems: vi.fn().mockResolvedValue([]),
+            saveBacklogItems: vi.fn().mockResolvedValue(undefined)
+        };
+        const service = new BacklogService(repository);
+
+        const backlog = await service.loadBacklog();
+        const lists = backlog.getAllLists();
+
+        expect(lists).toHaveLength(1);
+        expect(lists[0].id).toBe(INBOX_LIST_ID);
+    });
+
+    it("keeps exactly one inbox when repository already contains inbox", async () => {
+        const inbox = ListItem.createInbox();
+        const repository: IBacklogRepository = {
+            loadBacklogItems: vi.fn().mockResolvedValue([inbox]),
+            saveBacklogItems: vi.fn().mockResolvedValue(undefined)
+        };
+        const service = new BacklogService(repository);
+
+        const backlog = await service.loadBacklog();
+        const inboxLists = backlog.getAllLists().filter((list) => list.id === INBOX_LIST_ID);
+
+        expect(inboxLists).toHaveLength(1);
     });
 });

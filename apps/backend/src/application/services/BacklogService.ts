@@ -9,7 +9,9 @@ export class BacklogService {
     async loadBacklog(): Promise<Backlog> {
         const backlogItems = await this.backlogRepository.loadBacklogItems();
         try {
-            return Backlog.fromItems(backlogItems);
+            const backlog = Backlog.fromItems(backlogItems);
+            backlog.ensureInboxList();
+            return backlog;
         } catch (error) {
             if (error instanceof DomainError) {
                 throw new InfrastructureError("Stored backlog is inconsistent.", { cause: error });
