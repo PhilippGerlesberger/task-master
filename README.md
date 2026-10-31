@@ -13,10 +13,21 @@
 pnpm install
 ```
 
+After pulling new changes, regenerate the Prisma client:
+
+```bash
+pnpm --filter @app/backend run db:generate
+```
+
 ## Environment setup
 
-1. Copy [.env.example](./.env.example) to `.env`.
+1. Copy [.env.example](./.env.example) to `.env` at the repository root.
 2. Adjust values as needed.
+
+The backend automatically loads env files from:
+
+1. `apps/backend/.env`
+2. `<repo-root>/.env` (without overriding already-set variables)
 
 Key variables:
 
@@ -50,30 +61,51 @@ Key variables:
    pnpm --filter @app/backend run dev
    ```
 
-## Persistence switch
+## Persistence switch (`PERSISTENCE`)
 
 - `PERSISTENCE=json` (default): uses [JsonBacklogRepository](./apps/backend/src/infrastructure/repositories/JsonBacklogRepository.ts)
 - `PERSISTENCE=postgres`: uses [PostgresBacklogRepository](./apps/backend/src/infrastructure/repositories/PostgresBacklogRepository.ts) and ensures Inbox exists on startup
 
 ## Running tests
 
-### Without PostgreSQL suite
+Run all workspace tests once (non-watch mode):
 
-If `DATABASE_URL_TEST` is not set, PostgreSQL tests are skipped automatically:
+```bash
+pnpm test
+```
+
+Run tests in watch mode:
+
+```bash
+pnpm test:watch
+```
+
+### Backend tests without PostgreSQL suite
+
+If `DATABASE_URL_TEST` is not set (or does not target a `*_test` database), PostgreSQL tests are skipped automatically:
 
 ```bash
 pnpm --filter @app/backend exec vitest run
 ```
 
-### With PostgreSQL suite
+### Backend tests with PostgreSQL suite
 
-Set `DATABASE_URL_TEST` to a reachable test database, then run:
+1. Start PostgreSQL:
+
+   ```bash
+   docker compose up -d postgres
+   ```
+
+2. Set `DATABASE_URL_TEST` in the root `.env` to a reachable database ending in `_test`.
+3. Run backend tests:
 
 ```bash
 pnpm --filter @app/backend exec vitest run
 ```
 
 `tests/globalSetup.ts` applies `prisma migrate deploy` to `DATABASE_URL_TEST` before tests.
+
+> Note: CI currently does not run the PostgreSQL-backed test suite.
 
 ## Docker Compose backend + postgres
 
