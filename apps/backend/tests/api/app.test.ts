@@ -98,6 +98,7 @@ describe("createApp", () => {
             expect(response.statusCode).toBe(201);
             expect(response.json()).toMatchObject({
                 title: "Inbox",
+                isInbox: false,
                 childListIds: []
             });
             expect(saveBacklogItems).toHaveBeenCalledTimes(1);
@@ -221,7 +222,7 @@ describe("createApp", () => {
 
             const listResponse = await app.inject({ method: "GET", url: "/lists" });
             expect(listResponse.statusCode).toBe(200);
-            expect(listResponse.json()).toHaveLength(2);
+            expect(listResponse.json()).toHaveLength(3);
 
             const moveToRootResponse = await app.inject({
                 method: "PATCH",
