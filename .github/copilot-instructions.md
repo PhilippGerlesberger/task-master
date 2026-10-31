@@ -44,3 +44,7 @@
 - Snapshot saves delete rows missing from the snapshot; lists are written parents-first and deleted children-first because `ON DELETE RESTRICT` is not deferrable.
 - Backlog rebuilds `childListIds` while loading and must not change `updatedAt`; mappers never pre-link children.
 - Postgres tests require `DATABASE_URL_TEST`, and the target database name must end with `_test`; without that, Postgres tests are skipped.
+
+## Inbox rules
+- Exactly one inbox list exists, identified by `INBOX_LIST_ID`. It can be renamed but never deleted, archived, or moved under another list. It is always a root list.
+- Tasks created without an explicit list go to the inbox (handled in the application layer, not in the domain).
