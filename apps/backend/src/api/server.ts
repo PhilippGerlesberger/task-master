@@ -37,6 +37,7 @@ process.on("SIGTERM", () => {
 
 try {
     if (prisma) {
+        // Keep startup hardening in place; the authoritative invariant is Backlog.ensureInboxList.
         await ensureInboxList(prisma);
     }
 
