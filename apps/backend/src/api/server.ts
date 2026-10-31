@@ -1,11 +1,11 @@
-import { PrismaClient } from "@prisma/client";
 import { env } from "../env.js";
+import { createPrismaClient } from "../infrastructure/postgres/createPrismaClient.js";
 import { ensureInboxList } from "../infrastructure/postgres/ensureInboxList.js";
 import { PostgresBacklogRepository } from "../infrastructure/repositories/PostgresBacklogRepository.js";
 import { JsonBacklogRepository } from "../infrastructure/repositories/JsonBacklogRepository.js";
 import { createApp } from "./app.js";
 
-const prisma = env.PERSISTENCE === "postgres" ? new PrismaClient() : undefined;
+const prisma = env.PERSISTENCE === "postgres" ? createPrismaClient(env.DATABASE_URL) : undefined;
 const backlogRepository =
     env.PERSISTENCE === "postgres" && prisma
         ? new PostgresBacklogRepository(prisma)

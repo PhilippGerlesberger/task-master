@@ -1,4 +1,5 @@
-import type { PrismaClient } from "@prisma/client";
+import type { PrismaClient } from "../../../src/infrastructure/postgres/generated/client.js";
+import { createPrismaClient } from "../../../src/infrastructure/postgres/createPrismaClient.js";
 
 let skipMessageLogged = false;
 
@@ -21,9 +22,7 @@ export async function createTestPrismaClient(): Promise<PrismaClient> {
         throw new Error("DATABASE_URL_TEST is required for Postgres tests.");
     }
 
-    process.env.DATABASE_URL = databaseUrl;
-    const { PrismaClient } = await import("@prisma/client");
-    return new PrismaClient();
+    return createPrismaClient(databaseUrl);
 }
 
 export async function resetDatabase(prisma: PrismaClient): Promise<void> {
