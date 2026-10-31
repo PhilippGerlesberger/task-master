@@ -9,7 +9,7 @@ export class Backlog {
 
     constructor(backlogItems: BacklogItem[] = []) {
         for (const item of backlogItems) {
-            this.addItemInternal(item, true);
+            this.addItemInternal(item, { restoring: true });
         }
     }
 
@@ -18,7 +18,7 @@ export class Backlog {
     }
 
     addItem(item: BacklogItem): void {
-        this.addItemInternal(item, true);
+        this.addItemInternal(item, { restoring: false });
     }
 
     removeItem(itemId: ItemId): void {
@@ -192,13 +192,13 @@ export class Backlog {
 
     addTask(input: CreateTaskItemInput): TaskItem {
         const task = TaskItem.create(input);
-        this.addItemInternal(task, true);
+        this.addItemInternal(task, { restoring: false });
         return task;
     }
 
     addList(input: CreateListItemInput): ListItem {
         const list = ListItem.create(input);
-        this.addItemInternal(list, true);
+        this.addItemInternal(list, { restoring: false });
         return list;
     }
 
@@ -221,14 +221,12 @@ export class Backlog {
         return this.getAllItems();
     }
 
-    private addItemInternal(item: BacklogItem, validateReferenceGraph: boolean): void {
+    private addItemInternal(item: BacklogItem, options: { restoring: boolean }): void {
         if (this.items.has(item.id)) {
             throw new DomainError("An item with this id already exists.");
         }
 
-        if (validateReferenceGraph) {
-            this.validateItemReference(item);
-        }
+        this.validateItemReference(item);
 
         this.items.set(item.id, item);
 
@@ -238,7 +236,11 @@ export class Backlog {
                 throw new DomainError("List references a non-existing parent list.");
             }
 
-            this.addChildList(parent.id, item.id);
+            if (options.restoring) {
+                parent.restoreChildLink(item.id);
+            } else {
+                this.addChildList(parent.id, item.id);
+            }
         }
     }
 

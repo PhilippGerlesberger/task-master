@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Backlog } from "../../../src/domain/backlog/Backlog.js";
 import { ListItem } from "../../../src/domain/backlogItem/ListItem.js";
 import { TaskItem } from "../../../src/domain/backlogItem/TaskItem.js";
@@ -14,6 +14,14 @@ function createTask(title: string, listId: ItemId) {
 }
 
 describe("Backlog", () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+        vi.useRealTimers();
+    });
+
     it("adds an item and exposes it by id", () => {
         const backlog = new Backlog();
         const list = createList("Inbox");
@@ -174,6 +182,58 @@ describe("Backlog", () => {
 
         expect(backlog.getItem(list.id)).toBe(list);
         expect(backlog.getItem(task.id)).toBe(task);
+    });
+
+    it("rebuilds child links for three-level hierarchies without touching timestamps during restore", () => {
+        const t0 = new Date("2026-08-30T10:00:00.000Z");
+        const root = ListItem.reconstitute({
+            id: "root" as ItemId,
+            title: "Root",
+            createdAt: t0,
+            updatedAt: t0,
+            archived: false,
+            childListIds: []
+        });
+        const child = ListItem.reconstitute({
+            id: "child" as ItemId,
+            title: "Child",
+            createdAt: t0,
+            updatedAt: t0,
+            archived: false,
+            parentListId: root.id,
+            childListIds: []
+        });
+        const grandChild = ListItem.reconstitute({
+            id: "grand-child" as ItemId,
+            title: "Grand Child",
+            createdAt: t0,
+            updatedAt: t0,
+            archived: false,
+            parentListId: child.id,
+            childListIds: []
+        });
+
+        const backlog = new Backlog([root, child, grandChild]);
+
+        expect(backlog.getChildren(root.id).map((item) => item.id)).toEqual([child.id]);
+        expect(backlog.getChildren(child.id).map((item) => item.id)).toEqual([grandChild.id]);
+        expect(root.updatedAt.toISOString()).toBe("2026-08-30T10:00:00.000Z");
+        expect(child.updatedAt.toISOString()).toBe("2026-08-30T10:00:00.000Z");
+        expect(grandChild.updatedAt.toISOString()).toBe("2026-08-30T10:00:00.000Z");
+    });
+
+    it("touches parent updatedAt when adding a child list in normal mode", () => {
+        vi.setSystemTime(new Date("2026-08-30T10:00:00.000Z"));
+        const backlog = new Backlog();
+        const parent = backlog.addList({ title: "Parent" });
+        const parentUpdatedAtBeforeChild = parent.updatedAt;
+
+        vi.setSystemTime(new Date("2026-08-30T10:00:05.000Z"));
+        const child = backlog.addList({ title: "Child", parentId: parent.id });
+
+        expect(backlog.getChildren(parent.id).map((item) => item.id)).toEqual([child.id]);
+        expect(parent.updatedAt.toISOString()).toBe("2026-08-30T10:00:05.000Z");
+        expect(parent.updatedAt).not.toEqual(parentUpdatedAtBeforeChild);
     });
 
     it("returns empty children for a missing list", () => {
