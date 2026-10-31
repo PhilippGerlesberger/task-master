@@ -3,7 +3,7 @@ import type { BacklogItem } from "../../domain/backlogItem/BacklogItem.types.js"
 import { DomainError } from "../../domain/shared/errors.js";
 import { InfrastructureError } from "../../application/errors.js";
 import { ItemStatus, RepetitionKind as DomainRepetitionKind } from "../../domain/shared/types.js";
-import type { PrismaClient } from "../postgres/generated/client.js";
+import { Prisma, type PrismaClient } from "../postgres/generated/client.js";
 import {
     RepetitionKind as PrismaRepetitionKind,
     RepetitionMonthlyAnchor as PrismaRepetitionMonthlyAnchor,
@@ -16,7 +16,7 @@ export class PostgresBacklogRepository implements IBacklogRepository {
 
     async loadBacklogItems(): Promise<BacklogItem[]> {
         try {
-            const [lists, tasks, taskLists] = await Promise.all([
+            const [lists, tasks, taskLists] = await this.prisma.$transaction([
                 this.prisma.list.findMany({
                     select: {
                         id: true,
@@ -55,7 +55,7 @@ export class PostgresBacklogRepository implements IBacklogRepository {
                         listId: true
                     }
                 })
-            ]);
+            ], { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });
 
             return toDomainItems(
                 lists.map((row) => ({
