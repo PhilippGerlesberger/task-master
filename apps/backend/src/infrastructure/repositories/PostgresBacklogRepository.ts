@@ -2,32 +2,17 @@ import type { IBacklogRepository } from "../../application/ports/IBacklogReposit
 import type { BacklogItem } from "../../domain/backlogItem/BacklogItem.types.js";
 import { DomainError } from "../../domain/shared/errors.js";
 import { InfrastructureError } from "../../application/errors.js";
+import { ItemStatus, RepetitionKind as DomainRepetitionKind } from "../../domain/shared/types.js";
+import type { PrismaClient } from "../postgres/generated/client.js";
+import {
+    RepetitionKind as PrismaRepetitionKind,
+    RepetitionMonthlyAnchor as PrismaRepetitionMonthlyAnchor,
+    TaskStatus as PrismaTaskStatus
+} from "../postgres/generated/enums.js";
 import { toDomainItems, toPersistenceRows } from "./mappers/postgres.mapper.js";
-import { orderItemsForBacklog } from "./mappers/orderItems.js";
-
-type PrismaClientLike = {
-    list: {
-        findMany: (args?: any) => Promise<any[]>;
-        upsert: (args: any) => Promise<any>;
-        deleteMany: (args?: any) => Promise<any>;
-        delete: (args: any) => Promise<any>;
-        findFirst: (args?: any) => Promise<any | null>;
-    };
-    task: {
-        findMany: (args?: any) => Promise<any[]>;
-        upsert: (args: any) => Promise<any>;
-        deleteMany: (args?: any) => Promise<any>;
-    };
-    taskList: {
-        findMany: (args?: any) => Promise<any[]>;
-        deleteMany: (args?: any) => Promise<any>;
-        createMany: (args: any) => Promise<any>;
-    };
-    $transaction: <T>(callback: (tx: PrismaClientLike) => Promise<T>) => Promise<T>;
-};
 
 export class PostgresBacklogRepository implements IBacklogRepository {
-    constructor(private readonly prisma: PrismaClientLike) {}
+    constructor(private readonly prisma: PrismaClient) {}
 
     async loadBacklogItems(): Promise<BacklogItem[]> {
         try {
@@ -85,14 +70,14 @@ export class PostgresBacklogRepository implements IBacklogRepository {
                     id: row.id,
                     title: row.title,
                     description: row.description,
-                    status: row.status as any,
+                    status: toDomainTaskStatus(row.status),
                     priority: row.priority,
                     estimate: row.estimate,
                     persistent_completed: row.persistentCompleted,
                     archived: row.archived,
-                    repetition_kind: row.repetitionKind as any,
+                    repetition_kind: toDomainRepetitionKind(row.repetitionKind),
                     repetition_interval: row.repetitionInterval,
-                    repetition_monthly_anchor: row.repetitionMonthlyAnchor as any,
+                    repetition_monthly_anchor: toDomainMonthlyAnchor(row.repetitionMonthlyAnchor),
                     repetition_count: row.repetitionCount,
                     repetition_end_date: row.repetitionEndDate,
                     schedule_start_date: row.scheduleStartDate,
@@ -148,14 +133,14 @@ export class PostgresBacklogRepository implements IBacklogRepository {
                         update: {
                             title: row.title,
                             description: row.description,
-                            status: row.status as any,
+                            status: toPrismaTaskStatus(row.status),
                             priority: row.priority,
                             estimate: row.estimate,
                             persistentCompleted: row.persistent_completed,
                             archived: row.archived,
-                            repetitionKind: row.repetition_kind as any,
+                            repetitionKind: toPrismaRepetitionKind(row.repetition_kind),
                             repetitionInterval: row.repetition_interval,
-                            repetitionMonthlyAnchor: row.repetition_monthly_anchor as any,
+                            repetitionMonthlyAnchor: toPrismaMonthlyAnchor(row.repetition_monthly_anchor),
                             repetitionCount: row.repetition_count,
                             repetitionEndDate: row.repetition_end_date,
                             scheduleStartDate: row.schedule_start_date,
@@ -167,14 +152,14 @@ export class PostgresBacklogRepository implements IBacklogRepository {
                             id: row.id,
                             title: row.title,
                             description: row.description,
-                            status: row.status as any,
+                            status: toPrismaTaskStatus(row.status),
                             priority: row.priority,
                             estimate: row.estimate,
                             persistentCompleted: row.persistent_completed,
                             archived: row.archived,
-                            repetitionKind: row.repetition_kind as any,
+                            repetitionKind: toPrismaRepetitionKind(row.repetition_kind),
                             repetitionInterval: row.repetition_interval,
-                            repetitionMonthlyAnchor: row.repetition_monthly_anchor as any,
+                            repetitionMonthlyAnchor: toPrismaMonthlyAnchor(row.repetition_monthly_anchor),
                             repetitionCount: row.repetition_count,
                             repetitionEndDate: row.repetition_end_date,
                             scheduleStartDate: row.schedule_start_date,
@@ -198,7 +183,9 @@ export class PostgresBacklogRepository implements IBacklogRepository {
                 }
 
                 if (taskListRows.length > 0) {
-                    await tx.taskList.createMany({ data: taskListRows.map((row) => ({ taskId: row.task_id, listId: row.list_id })) });
+                    await tx.taskList.createMany({
+                        data: taskListRows.map((row) => ({ taskId: row.task_id, listId: row.list_id }))
+                    });
                 }
 
                 if (taskIds.length === 0) {
@@ -244,6 +231,96 @@ export class PostgresBacklogRepository implements IBacklogRepository {
     }
 }
 
-export function materializeBacklog(items: BacklogItem[]): BacklogItem[] {
-    return orderItemsForBacklog(items);
+function toDomainTaskStatus(value: PrismaTaskStatus): ItemStatus {
+    switch (value) {
+        case PrismaTaskStatus.TODO:
+            return ItemStatus.TODO;
+        case PrismaTaskStatus.IN_PROGRESS:
+            return ItemStatus.IN_PROGRESS;
+        case PrismaTaskStatus.DONE:
+            return ItemStatus.DONE;
+        default:
+            throw new InfrastructureError(`Unsupported task status from storage: ${String(value)}`);
+    }
+}
+
+function toPrismaTaskStatus(value: ItemStatus): PrismaTaskStatus {
+    switch (value) {
+        case ItemStatus.TODO:
+            return PrismaTaskStatus.TODO;
+        case ItemStatus.IN_PROGRESS:
+            return PrismaTaskStatus.IN_PROGRESS;
+        case ItemStatus.DONE:
+            return PrismaTaskStatus.DONE;
+        default:
+            throw new InfrastructureError(`Unsupported task status for storage: ${String(value)}`);
+    }
+}
+
+function toDomainRepetitionKind(value: PrismaRepetitionKind): DomainRepetitionKind {
+    switch (value) {
+        case PrismaRepetitionKind.NONE:
+            return DomainRepetitionKind.NONE;
+        case PrismaRepetitionKind.DAILY:
+            return DomainRepetitionKind.DAILY;
+        case PrismaRepetitionKind.WEEKLY:
+            return DomainRepetitionKind.WEEKLY;
+        case PrismaRepetitionKind.MONTHLY:
+            return DomainRepetitionKind.MONTHLY;
+        case PrismaRepetitionKind.YEARLY:
+            return DomainRepetitionKind.YEARLY;
+        default:
+            throw new InfrastructureError(`Unsupported repetition kind from storage: ${String(value)}`);
+    }
+}
+
+function toPrismaRepetitionKind(value: DomainRepetitionKind): PrismaRepetitionKind {
+    switch (value) {
+        case DomainRepetitionKind.NONE:
+            return PrismaRepetitionKind.NONE;
+        case DomainRepetitionKind.DAILY:
+            return PrismaRepetitionKind.DAILY;
+        case DomainRepetitionKind.WEEKLY:
+            return PrismaRepetitionKind.WEEKLY;
+        case DomainRepetitionKind.MONTHLY:
+            return PrismaRepetitionKind.MONTHLY;
+        case DomainRepetitionKind.YEARLY:
+            return PrismaRepetitionKind.YEARLY;
+        default:
+            throw new InfrastructureError(`Unsupported repetition kind for storage: ${String(value)}`);
+    }
+}
+
+function toDomainMonthlyAnchor(
+    value: PrismaRepetitionMonthlyAnchor | null
+): "SAME_DAY" | "END_OF_MONTH" | null {
+    if (value === null) {
+        return null;
+    }
+
+    switch (value) {
+        case PrismaRepetitionMonthlyAnchor.SAME_DAY:
+            return "SAME_DAY";
+        case PrismaRepetitionMonthlyAnchor.END_OF_MONTH:
+            return "END_OF_MONTH";
+        default:
+            throw new InfrastructureError(`Unsupported monthly anchor from storage: ${String(value)}`);
+    }
+}
+
+function toPrismaMonthlyAnchor(
+    value: "SAME_DAY" | "END_OF_MONTH" | null
+): PrismaRepetitionMonthlyAnchor | null {
+    if (value === null) {
+        return null;
+    }
+
+    switch (value) {
+        case "SAME_DAY":
+            return PrismaRepetitionMonthlyAnchor.SAME_DAY;
+        case "END_OF_MONTH":
+            return PrismaRepetitionMonthlyAnchor.END_OF_MONTH;
+        default:
+            throw new InfrastructureError(`Unsupported monthly anchor for storage: ${String(value)}`);
+    }
 }

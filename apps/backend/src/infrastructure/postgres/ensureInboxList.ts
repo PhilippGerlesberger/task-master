@@ -1,22 +1,7 @@
+import type { PrismaClient } from "./generated/client.js";
 import { INBOX_LIST_ID } from "../../domain/shared/constants.js";
 
-type ListUpsertClient = {
-    list: {
-        upsert(args: {
-            where: { id: string };
-            update: Record<string, unknown>;
-            create: {
-                id: string;
-                title: string;
-                archived: boolean;
-                createdAt: Date;
-                updatedAt: Date;
-            };
-        }): Promise<unknown>;
-    };
-};
-
-export async function ensureInboxList(prisma: ListUpsertClient): Promise<void> {
+export async function ensureInboxList(prisma: Pick<PrismaClient, "list">): Promise<void> {
     const now = new Date();
 
     await prisma.list.upsert({
