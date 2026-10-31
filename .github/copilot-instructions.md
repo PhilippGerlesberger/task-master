@@ -37,3 +37,10 @@
 - Implement only what the current task asks for; do not refactor unrelated code.
 - Never run destructive commands (dropping databases, deleting data/) unless asked.
 - List your assumptions in the final summary.
+
+## Persistence rules
+- A PrismaClient is only created in `src/infrastructure/postgres/createPrismaClient.ts` (Prisma 7 + driver adapter).
+- The generated Prisma client lives in `src/infrastructure/postgres/generated` and is git-ignored.
+- Snapshot saves delete rows missing from the snapshot; lists are written parents-first and deleted children-first because `ON DELETE RESTRICT` is not deferrable.
+- Backlog rebuilds `childListIds` while loading and must not change `updatedAt`; mappers never pre-link children.
+- Postgres tests require `DATABASE_URL_TEST`, and the target database name must end with `_test`; without that, Postgres tests are skipped.
