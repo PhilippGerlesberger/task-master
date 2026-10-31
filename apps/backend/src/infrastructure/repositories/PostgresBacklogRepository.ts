@@ -10,6 +10,9 @@ import {
     TaskStatus as PrismaTaskStatus
 } from "../postgres/generated/enums.js";
 import { toDomainItems, toPersistenceRows } from "./mappers/postgres.mapper.js";
+import { sortListRowsByDepth } from "./sortListRowsByDepth.js";
+
+const SNAPSHOT_SAVE_ADVISORY_LOCK_KEY = 932_114_207;
 
 export class PostgresBacklogRepository implements IBacklogRepository {
     constructor(private readonly prisma: PrismaClient) {}
@@ -103,9 +106,9 @@ export class PostgresBacklogRepository implements IBacklogRepository {
             const taskIds = taskRows.map((row) => row.id);
 
             await this.prisma.$transaction(async (tx) => {
-                const orderedListRows = [...listRows].sort(
-                    (left, right) => Number(left.parent_list_id !== null) - Number(right.parent_list_id !== null)
-                );
+                await tx.$executeRaw`SELECT pg_advisory_xact_lock(${SNAPSHOT_SAVE_ADVISORY_LOCK_KEY})`;
+
+                const orderedListRows = sortListRowsByDepth(listRows, "parents-first");
 
                 for (const row of orderedListRows) {
                     await tx.list.upsert({
@@ -205,8 +208,9 @@ export class PostgresBacklogRepository implements IBacklogRepository {
                         select: { id: true, parentListId: true }
                     }));
 
-                const orderedStaleLists = [...staleLists].sort(
-                    (left, right) => Number(right.parentListId !== null) - Number(left.parentListId !== null)
+                const orderedStaleLists = sortListRowsByDepth(
+                    staleLists.map((row) => ({ id: row.id, parent_list_id: row.parentListId })),
+                    "children-first"
                 );
 
                 for (const staleList of orderedStaleLists) {

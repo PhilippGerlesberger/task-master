@@ -129,6 +129,52 @@ export function runBacklogRepositoryContract(
             }
         });
 
+        it("removes a whole subtree in a single snapshot while keeping siblings", async () => {
+            const { repository, cleanup } = await createRepository();
+            try {
+                const root = ListItem.create({ title: "Root" });
+                const subtreeRoot = ListItem.create({ title: "A", parentId: root.id });
+                const subtreeChild = ListItem.create({ title: "B", parentId: subtreeRoot.id });
+                const subtreeLeaf = ListItem.create({ title: "C", parentId: subtreeChild.id });
+                const sibling = ListItem.create({ title: "Sibling", parentId: root.id });
+
+                await repository.saveBacklogItems([root, subtreeRoot, subtreeChild, subtreeLeaf, sibling]);
+                await repository.saveBacklogItems([root, sibling]);
+
+                const loadedBacklog = Backlog.fromItems(await repository.loadBacklogItems());
+
+                expect(loadedBacklog.getItem(subtreeRoot.id)).toBeUndefined();
+                expect(loadedBacklog.getItem(subtreeChild.id)).toBeUndefined();
+                expect(loadedBacklog.getItem(subtreeLeaf.id)).toBeUndefined();
+                expect(loadedBacklog.getChildren(root.id).map((item) => item.id)).toEqual([sibling.id]);
+            } finally {
+                await cleanup();
+            }
+        });
+
+        it("moves a list into a deeper branch and reloads hierarchy correctly", async () => {
+            const { repository, cleanup } = await createRepository();
+            try {
+                const root = ListItem.create({ title: "Root" });
+                const listA = ListItem.create({ title: "A", parentId: root.id });
+                const listB = ListItem.create({ title: "B", parentId: root.id });
+                const listC = ListItem.create({ title: "C", parentId: listB.id });
+                await repository.saveBacklogItems([root, listA, listB, listC]);
+
+                const toMoveBacklog = Backlog.fromItems(await repository.loadBacklogItems());
+                toMoveBacklog.moveList(listA.id, listC.id);
+                await repository.saveBacklogItems(toMoveBacklog.toPersistenceModel());
+
+                const reloadedBacklog = Backlog.fromItems(await repository.loadBacklogItems());
+                expect(getList(reloadedBacklog, listA.id).parentListId).toBe(listC.id);
+                expect(getChildrenIds(reloadedBacklog, root.id)).toEqual([listB.id]);
+                expect(getChildrenIds(reloadedBacklog, listB.id)).toEqual([listC.id]);
+                expect(getChildrenIds(reloadedBacklog, listC.id)).toEqual([listA.id]);
+            } finally {
+                await cleanup();
+            }
+        });
+
         it("is idempotent when saving the same snapshot twice", async () => {
             const { repository, cleanup } = await createRepository();
             try {
@@ -349,4 +395,8 @@ function normalizePersistenceItems(items: readonly (ListItem | TaskItem)[]): Nor
             } satisfies NormalizedItem;
         })
         .sort((left, right) => left.id.localeCompare(right.id));
+}
+
+function getChildrenIds(backlog: Backlog, parentId: ItemId): ItemId[] {
+    return backlog.getChildren(parentId).map((item) => item.id);
 }
