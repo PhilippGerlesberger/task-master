@@ -40,6 +40,7 @@ model List {
   children List[]   @relation("ListHierarchy")
   taskRefs TaskList[]
 
+  @@index([parentListId])
   @@map("lists")
 }
 
@@ -76,5 +77,6 @@ model TaskList {
   list List @relation(fields: [listId], references: [id], onDelete: Restrict)
 
   @@id([taskId, listId])
+  @@index([listId])
   @@map("task_lists")
 }
