@@ -4,6 +4,7 @@ import { generateItemId } from "../shared/utils.js";
 import type { ItemId } from "../shared/types.js";
 import type { CreateListItemInput } from "./BacklogItem.types.js";
 import { DomainError } from "../shared/errors.js";
+import { INBOX_LIST_ID, INBOX_LIST_TITLE } from "../shared/constants.js";
 
 
 export class ListItem extends AbstractBacklogItem {
@@ -38,6 +39,19 @@ export class ListItem extends AbstractBacklogItem {
         });
     }
 
+    static createInbox(): ListItem {
+        const now = new Date();
+        return new ListItem({
+            id: INBOX_LIST_ID,
+            title: INBOX_LIST_TITLE,
+            createdAt: now,
+            updatedAt: now,
+            archived: false,
+            parentListId: undefined,
+            childListIds: []
+        });
+    }
+
     static reconstitute(props: {
         id: ItemId;
         title: string;
@@ -60,8 +74,16 @@ export class ListItem extends AbstractBacklogItem {
 
     get parentListId(): ItemId | undefined { return this._parentListId; }
     get childListIds(): readonly ItemId[] { return this._childListIds; }
+    get isInbox(): boolean { return this.id === INBOX_LIST_ID; }
 
     moveTo(parentListId?: ItemId): void {
+        if (this.isInbox) {
+            if (parentListId !== undefined) {
+                throw new DomainError("Inbox list cannot be moved under another list.");
+            }
+            return;
+        }
+
         if (parentListId === this.id) {
             throw new DomainError("A list cannot be its own parent.");
         }
@@ -73,6 +95,14 @@ export class ListItem extends AbstractBacklogItem {
         
         this._parentListId = parentListId;
         this.touch();
+    }
+
+    override archive(): void {
+        if (this.isInbox) {
+            throw new DomainError("Inbox list cannot be archived.");
+        }
+
+        super.archive();
     }
 
     addChildList(childListId: ItemId): void {
