@@ -85,6 +85,18 @@ export class ListItem extends AbstractBacklogItem {
         this.touch();
     }
 
+    /**
+     * Restores derived child list state while rebuilding a backlog from storage.
+     */
+    restoreChildLink(childListId: ItemId): void {
+        if (childListId === this.id) {
+            throw new DomainError("A list cannot contain itself.");
+        }
+        if (this._childListIds.includes(childListId)) return;
+
+        this._childListIds.push(childListId);
+    }
+
     removeChildList(childListId: ItemId): void {
         if (!this._childListIds.includes(childListId)) return;
 

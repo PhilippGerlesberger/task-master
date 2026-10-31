@@ -156,4 +156,25 @@ describe("ListItem parent and child transitions", () => {
         list.addChildList("child-1" as ItemId);
         expect(() => list.moveTo("child-1" as ItemId)).toThrow(DomainError);
     });
+
+    it("restoreChildLink adds child idempotently without touching updatedAt", () => {
+        const list = createList("Projects");
+        const initialUpdatedAt = list.updatedAt;
+
+        vi.setSystemTime(new Date("2026-08-30T10:00:03.000Z"));
+        list.restoreChildLink("child-1" as ItemId);
+        const updatedAfterFirstLink = list.updatedAt;
+
+        vi.setSystemTime(new Date("2026-08-30T10:00:05.000Z"));
+        list.restoreChildLink("child-1" as ItemId);
+
+        expect(list.childListIds).toEqual(["child-1"]);
+        expect(updatedAfterFirstLink).toEqual(initialUpdatedAt);
+        expect(list.updatedAt).toEqual(initialUpdatedAt);
+    });
+
+    it("restoreChildLink rejects self-reference", () => {
+        const list = createList("Projects");
+        expect(() => list.restoreChildLink(list.id)).toThrow(DomainError);
+    });
 });
