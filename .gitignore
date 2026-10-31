@@ -18,6 +18,7 @@ node_modules/
 **/dist/
 **/coverage/
 /data/
+apps/backend/src/infrastructure/postgres/generated/
 
 # project folders not tracked (temporary)
 scripts/
