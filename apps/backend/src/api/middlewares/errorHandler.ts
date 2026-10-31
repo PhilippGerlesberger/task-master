@@ -4,7 +4,7 @@ import { InfrastructureError } from "../../application/errors.js";
 import { ZodError } from "zod";
 
 export function registerErrorHandler(app: FastifyInstance): void {
-    app.setErrorHandler((error, _request, reply) => {
+    app.setErrorHandler((error, request, reply) => {
         if (error instanceof ZodError) {
             return reply.code(400).send({ message: "Validation failed", issues: error.issues });
         }
@@ -14,11 +14,11 @@ export function registerErrorHandler(app: FastifyInstance): void {
         }
 
         if (error instanceof InfrastructureError) {
-            app.log.error(error);
+            request.log.error({ err: error, cause: error.cause }, "Infrastructure error");
             return reply.code(500).send({ message: "Internal Server Error" });
         }
 
-        app.log.error(error);
+        request.log.error({ err: error }, "Unhandled application error");
         return reply.code(500).send({ message: "Internal Server Error" });
     });
 }

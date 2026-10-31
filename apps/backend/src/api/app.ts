@@ -8,10 +8,11 @@ import { registerRoutes } from "./routes.js";
 
 export interface CreateAppDependencies {
     backlogRepository: IBacklogRepository;
+    logger?: boolean;
 }
 
 export function createApp(dependencies: CreateAppDependencies): FastifyInstance {
-    const app = Fastify({ logger: false });
+    const app = Fastify({ logger: dependencies.logger ?? false });
     app.register(cors, {
         origin: env.CORS_ORIGIN,
         methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"]
