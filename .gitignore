@@ -10,14 +10,12 @@ node_modules/
 .DS_Store
 
 # generated artifacts
-**/*.js
-**/*.d.ts
 **/*.tsbuildinfo
 
 # build output
 **/dist/
 **/coverage/
-/data/
+**/data/
 apps/backend/src/infrastructure/postgres/generated/
 
 # project folders not tracked (temporary)
