@@ -11,7 +11,7 @@ const scheduleSchema = z.object({
 export const createTaskSchema = z.object({
     title: z.string().min(1),
     description: z.string().optional(),
-    listIds: z.array(z.string().min(1)).min(1),
+    listIds: z.array(z.string().min(1)).min(1).optional(),
     priority: z.nativeEnum(Priority).optional(),
     estimate: z.number().min(0).optional(),
     repetition: z

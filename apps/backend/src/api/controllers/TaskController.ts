@@ -1,6 +1,5 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import type { BacklogService } from "../../application/services/BacklogService.js";
-import type { CreateTaskItemInput } from "../../domain/backlogItem/BacklogItem.types.js";
 import type { ItemId } from "../../domain/shared/types.js";
 import { toTaskDto } from "../../application/dto/TaskDto.js";
 import {
@@ -23,14 +22,11 @@ export class TaskController {
         reply: FastifyReply
     ): Promise<unknown> {
         const body = createTaskSchema.parse(request.body);
-        const input: CreateTaskItemInput = {
+        const input = {
             ...body,
-            listIds: body.listIds.map((listId) => listId as ItemId)
+            listIds: body.listIds?.map((listId) => listId as ItemId)
         };
-
-        const backlog = await this.backlogService.loadBacklog();
-        const task = backlog.addTask(input);
-        await this.backlogService.saveBacklog(backlog);
+        const task = await this.backlogService.createTask(input);
 
         return reply.code(201).send(toTaskDto(task));
     }
