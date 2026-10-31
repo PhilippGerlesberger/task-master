@@ -14,6 +14,7 @@ COPY apps/backend apps/backend
 COPY packages/shared-types packages/shared-types
 
 RUN pnpm --filter @taskmaster/shared-types run build
+ARG DATABASE_URL=postgresql://build:build@localhost:5432/build
 RUN pnpm --filter @app/backend run db:generate
 RUN pnpm --filter @app/backend run build
 
