@@ -8,6 +8,7 @@ import type { IBacklogRepository } from "../../src/application/ports/IBacklogRep
 import { InfrastructureError } from "../../src/application/errors.js";
 import { ItemStatus, RepetitionKind } from "../../src/domain/shared/types.js";
 import { RepetitionPattern } from "../../src/domain/shared/valueObjects.js";
+import { INBOX_LIST_ID } from "../../src/domain/shared/constants.js";
 
 function createList(title: string, parentId?: ItemId) {
     return ListItem.create({ title, parentId });
@@ -119,13 +120,85 @@ describe("createApp", () => {
             const response = await app.inject({
                 method: "POST",
                 url: "/tasks",
-                payload: { title: "", listIds: [] }
+                payload: { title: "", listIds: ["list-1"] }
             });
 
             expect(response.statusCode).toBe(400);
             expect(response.json()).toMatchObject({
                 message: "Validation failed"
             });
+        } finally {
+            await app.close();
+        }
+    });
+
+    it("creates a task without listIds in inbox and persists inbox + task", async () => {
+        const storedItems: BacklogItem[] = [];
+        const saveBacklogItems = vi.fn(async (items: BacklogItem[]) => {
+            storedItems.splice(0, storedItems.length, ...items);
+        });
+        const repository: IBacklogRepository = {
+            loadBacklogItems: vi.fn(async () => storedItems),
+            saveBacklogItems
+        };
+        const app = createApp({ backlogRepository: repository });
+
+        try {
+            const response = await app.inject({
+                method: "POST",
+                url: "/tasks",
+                payload: { title: "Task without list" }
+            });
+
+            expect(response.statusCode).toBe(201);
+            expect(response.json().listIds).toEqual([INBOX_LIST_ID]);
+
+            const savedSnapshot = saveBacklogItems.mock.calls[0][0] as BacklogItem[];
+            const inbox = savedSnapshot.find((item) => item.kind === "list" && item.id === INBOX_LIST_ID);
+            const task = savedSnapshot.find((item) => item.kind === "task" && item.title === "Task without list");
+            expect(inbox).toBeDefined();
+            expect(task).toBeDefined();
+        } finally {
+            await app.close();
+        }
+    });
+
+    it("creates a task with explicit listIds without adding inbox to task listIds", async () => {
+        const projectList = createList("Project");
+        const repository = createInMemoryRepository([projectList]);
+        const app = createApp({ backlogRepository: repository });
+
+        try {
+            const response = await app.inject({
+                method: "POST",
+                url: "/tasks",
+                payload: { title: "Scoped task", listIds: [projectList.id] }
+            });
+
+            expect(response.statusCode).toBe(201);
+            expect(response.json().listIds).toEqual([projectList.id]);
+            expect(response.json().listIds).not.toContain(INBOX_LIST_ID);
+        } finally {
+            await app.close();
+        }
+    });
+
+    it("returns 400 when listIds is an explicit empty array", async () => {
+        const repository: IBacklogRepository = {
+            loadBacklogItems: vi.fn().mockResolvedValue([]),
+            saveBacklogItems: vi.fn().mockResolvedValue(undefined)
+        };
+        const app = createApp({ backlogRepository: repository });
+
+        try {
+            const response = await app.inject({
+                method: "POST",
+                url: "/tasks",
+                payload: { title: "Empty lists", listIds: [] }
+            });
+
+            expect(response.statusCode).toBe(400);
+            expect(response.json()).toMatchObject({ message: "Validation failed" });
         } finally {
             await app.close();
         }
@@ -236,6 +309,85 @@ describe("createApp", () => {
                 url: `/lists/${childId}`
             });
             expect(removeChildResponse.statusCode).toBe(204);
+        } finally {
+            await app.close();
+        }
+    });
+
+    it("returns inbox on GET /lists when repository is empty", async () => {
+        const repository = createInMemoryRepository();
+        const app = createApp({ backlogRepository: repository });
+
+        try {
+            const response = await app.inject({ method: "GET", url: "/lists" });
+            expect(response.statusCode).toBe(200);
+            expect(response.json()).toHaveLength(1);
+            expect(response.json()[0]).toMatchObject({
+                id: INBOX_LIST_ID,
+                isInbox: true
+            });
+        } finally {
+            await app.close();
+        }
+    });
+
+    it("rejects deleting the inbox list", async () => {
+        const repository = createInMemoryRepository();
+        const app = createApp({ backlogRepository: repository });
+
+        try {
+            const response = await app.inject({
+                method: "DELETE",
+                url: `/lists/${INBOX_LIST_ID}`
+            });
+
+            expect(response.statusCode).toBe(400);
+            expect(response.json()).toEqual({ message: "Inbox list cannot be removed." });
+        } finally {
+            await app.close();
+        }
+    });
+
+    it("rejects moving the inbox under a parent list", async () => {
+        const repository = createInMemoryRepository();
+        const app = createApp({ backlogRepository: repository });
+
+        try {
+            const createParentResponse = await app.inject({
+                method: "POST",
+                url: "/lists",
+                payload: { title: "Parent" }
+            });
+            expect(createParentResponse.statusCode).toBe(201);
+
+            const response = await app.inject({
+                method: "PATCH",
+                url: `/lists/${INBOX_LIST_ID}/move`,
+                payload: { parentListId: createParentResponse.json().id }
+            });
+
+            expect(response.statusCode).toBe(400);
+        } finally {
+            await app.close();
+        }
+    });
+
+    it("still deletes a normal list", async () => {
+        const repository = createInMemoryRepository();
+        const app = createApp({ backlogRepository: repository });
+
+        try {
+            const createListResponse = await app.inject({
+                method: "POST",
+                url: "/lists",
+                payload: { title: "Delete me" }
+            });
+            expect(createListResponse.statusCode).toBe(201);
+
+            const listId = createListResponse.json().id as ItemId;
+            const deleteResponse = await app.inject({ method: "DELETE", url: `/lists/${listId}` });
+
+            expect(deleteResponse.statusCode).toBe(204);
         } finally {
             await app.close();
         }
