@@ -3,7 +3,9 @@ import { Backlog } from "../../../src/domain/backlog/Backlog.js";
 import { ListItem } from "../../../src/domain/backlogItem/ListItem.js";
 import { TaskItem } from "../../../src/domain/backlogItem/TaskItem.js";
 import { DomainError } from "../../../src/domain/shared/errors.js";
-import { ItemStatus, type ItemId } from "../../../src/domain/shared/types.js";
+import { ItemStatus, RepetitionKind, type ItemId } from "../../../src/domain/shared/types.js";
+import { INBOX_LIST_ID } from "../../../src/domain/shared/constants.js";
+import { RepetitionPattern } from "../../../src/domain/shared/valueObjects.js";
 
 function createList(title: string, parentId?: ItemId) {
     return ListItem.create({ title, parentId });
@@ -30,6 +32,38 @@ describe("Backlog", () => {
 
         expect(backlog.getItem(list.id)).toBe(list);
         expect(backlog.getAllItems()).toEqual([list]);
+    });
+
+    it("ensureInboxList adds inbox once and is idempotent", () => {
+        const backlog = new Backlog();
+
+        const inbox = backlog.ensureInboxList();
+        const inboxAgain = backlog.ensureInboxList();
+
+        expect(inbox.id).toBe(INBOX_LIST_ID);
+        expect(inboxAgain).toBe(inbox);
+        expect(backlog.getAllLists().filter((list) => list.id === INBOX_LIST_ID)).toHaveLength(1);
+    });
+
+    it("ensureInboxList throws when inbox id is already taken by a task", () => {
+        const backlog = new Backlog();
+        const list = createList("Work");
+        backlog.addItem(list);
+
+        const taskUsingInboxId = TaskItem.reconstitute({
+            id: INBOX_LIST_ID,
+            title: "Conflicting item",
+            createdAt: new Date("2026-08-30T10:00:00.000Z"),
+            updatedAt: new Date("2026-08-30T10:00:00.000Z"),
+            archived: false,
+            listIds: [list.id],
+            repetition: RepetitionPattern.create({ kind: RepetitionKind.NONE }),
+            status: ItemStatus.TODO,
+            persistentCompleted: false
+        });
+        backlog.addItem(taskUsingInboxId);
+
+        expect(() => backlog.ensureInboxList()).toThrow(DomainError);
     });
 
     it("rejects duplicate ids", () => {
@@ -342,6 +376,64 @@ describe("Backlog", () => {
 
         expect(child.parentListId).toBeUndefined();
         expect(backlog.getChildren(root.id)).toEqual([]);
+    });
+
+    it("prevents deleting inbox and leaves backlog unchanged", () => {
+        const backlog = new Backlog();
+        const root = createList("Root");
+        const child = createList("Child", root.id);
+        backlog.addItem(root);
+        backlog.addItem(child);
+        const inbox = backlog.ensureInboxList();
+
+        const rootChildrenBefore = [...root.childListIds];
+        const inboxParentBefore = inbox.parentListId;
+
+        expect(() => backlog.removeItem(INBOX_LIST_ID)).toThrow(DomainError);
+        expect(backlog.getItem(INBOX_LIST_ID)).toBe(inbox);
+        expect(root.childListIds).toEqual(rootChildrenBefore);
+        expect(inbox.parentListId).toBe(inboxParentBefore);
+    });
+
+    it("prevents moving inbox under another list and leaves backlog unchanged", () => {
+        const backlog = new Backlog();
+        const root = createList("Root");
+        backlog.addItem(root);
+        const inbox = backlog.ensureInboxList();
+
+        const rootChildrenBefore = [...root.childListIds];
+        const inboxParentBefore = inbox.parentListId;
+
+        expect(() => backlog.moveList(INBOX_LIST_ID, root.id)).toThrow(DomainError);
+        expect(root.childListIds).toEqual(rootChildrenBefore);
+        expect(inbox.parentListId).toBe(inboxParentBefore);
+    });
+
+    it("prevents linking inbox as a child list and leaves backlog unchanged", () => {
+        const backlog = new Backlog();
+        const root = createList("Root");
+        backlog.addItem(root);
+        const inbox = backlog.ensureInboxList();
+
+        const rootChildrenBefore = [...root.childListIds];
+        const inboxParentBefore = inbox.parentListId;
+
+        expect(() => backlog.addChildList(root.id, INBOX_LIST_ID)).toThrow(DomainError);
+        expect(root.childListIds).toEqual(rootChildrenBefore);
+        expect(inbox.parentListId).toBe(inboxParentBefore);
+    });
+
+    it("allows assigning tasks to inbox", () => {
+        const backlog = new Backlog();
+        const work = createList("Work");
+        backlog.addItem(work);
+        const inbox = backlog.ensureInboxList();
+        const task = createTask("Write release notes", work.id);
+        backlog.addItem(task);
+
+        backlog.assignTaskToList(task.id, inbox.id);
+
+        expect(task.listIds).toContain(inbox.id);
     });
 
     it("validates addChildList and removeChildList input lists", () => {

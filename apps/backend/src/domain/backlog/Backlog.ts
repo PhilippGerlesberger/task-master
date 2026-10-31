@@ -3,6 +3,7 @@ import { ItemStatus, type ItemId } from "../shared/types.js";
 import type { BacklogItem, CreateListItemInput, CreateTaskItemInput } from "../backlogItem/BacklogItem.types.js";
 import { ListItem } from "../backlogItem/ListItem.js";
 import { TaskItem } from "../backlogItem/TaskItem.js";
+import { INBOX_LIST_ID } from "../shared/constants.js";
 
 export class Backlog {
     private readonly items: Map<ItemId, BacklogItem> = new Map();
@@ -21,7 +22,25 @@ export class Backlog {
         this.addItemInternal(item, { restoring: false });
     }
 
+    ensureInboxList(): ListItem {
+        const existing = this.items.get(INBOX_LIST_ID);
+        if (existing) {
+            if (existing.kind !== "list") {
+                throw new DomainError("Inbox id is already used by a non-list item.");
+            }
+            return existing;
+        }
+
+        const inbox = ListItem.createInbox();
+        this.addItemInternal(inbox, { restoring: false });
+        return inbox;
+    }
+
     removeItem(itemId: ItemId): void {
+        if (itemId === INBOX_LIST_ID) {
+            throw new DomainError("Inbox list cannot be removed.");
+        }
+
         const item = this.items.get(itemId);
         if (!item) {
             return;
@@ -117,6 +136,10 @@ export class Backlog {
     }
 
     moveList(listId: ItemId, newParentId?: ItemId): void {
+        if (listId === INBOX_LIST_ID && newParentId !== undefined) {
+            throw new DomainError("Inbox list cannot be moved under another list.");
+        }
+
         const list = this.getList(listId);
         if (!list) {
             throw new DomainError("List does not exist.");
@@ -148,6 +171,10 @@ export class Backlog {
     }
 
     addChildList(parentId: ItemId, childId: ItemId): void {
+        if (childId === INBOX_LIST_ID) {
+            throw new DomainError("Inbox list cannot be moved under another list.");
+        }
+
         const parent = this.getList(parentId);
         const child = this.getList(childId);
 
