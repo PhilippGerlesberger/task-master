@@ -12,9 +12,8 @@ export default function globalSetup(_project: TestProject): void {
 
     const testsDir = dirname(fileURLToPath(import.meta.url));
     const backendDir = resolve(testsDir, "..");
-    const corepack = process.platform === "win32" ? "corepack.cmd" : "corepack";
-
-    const result = spawnSync(corepack, ["pnpm", "run", "db:deploy"], {
+    const result = spawnSync("pnpm exec prisma migrate deploy", {
+        shell: true,
         cwd: backendDir,
         env: {
             ...process.env,
