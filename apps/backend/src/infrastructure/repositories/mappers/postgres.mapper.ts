@@ -67,10 +67,8 @@ export function toDomainItems(
     taskRows: PostgresTaskRow[],
     taskListRows: PostgresTaskListRow[]
 ): BacklogItem[] {
-    const byId = new Map<string, BacklogItem>();
-
     const listItems = listRows.map((row) => {
-        const item = ListItem.reconstitute({
+        return ListItem.reconstitute({
             id: row.id as ItemId,
             title: row.title,
             createdAt: row.created_at,
@@ -79,27 +77,28 @@ export function toDomainItems(
             parentListId: row.parent_list_id ? (row.parent_list_id as ItemId) : undefined,
             childListIds: []
         });
-
-        byId.set(item.id, item);
-        return item;
     });
 
-    const taskByListId = new Map<string, string[]>();
+    const taskListIdsByTaskId = new Map<string, ItemId[]>();
     for (const row of taskListRows) {
-        const existing = taskByListId.get(row.list_id) ?? [];
-        existing.push(row.task_id);
-        taskByListId.set(row.list_id, existing);
+        const existing = taskListIdsByTaskId.get(row.task_id);
+        if (existing) {
+            existing.push(row.list_id as ItemId);
+            continue;
+        }
+
+        taskListIdsByTaskId.set(row.task_id, [row.list_id as ItemId]);
     }
 
     const taskItems = taskRows.map((row) => {
-        const task = TaskItem.reconstitute({
+        return TaskItem.reconstitute({
             id: row.id as ItemId,
             title: row.title,
             createdAt: row.created_at,
             updatedAt: row.updated_at,
             archived: row.archived,
             description: row.description ?? undefined,
-            listIds: Array.from(new Set(taskListRows.filter((taskRow) => taskRow.task_id === row.id).map((taskRow) => taskRow.list_id as ItemId))),
+            listIds: Array.from(new Set(taskListIdsByTaskId.get(row.id) ?? [])),
             priority: row.priority === null ? undefined : row.priority,
             estimate: row.estimate ?? undefined,
             repetition: deserializeRepetition(row),
@@ -107,19 +106,7 @@ export function toDomainItems(
             status: row.status as ItemStatus,
             persistentCompleted: row.persistent_completed
         });
-
-        byId.set(task.id, task);
-        return task;
     });
-
-    for (const item of [...listItems, ...taskItems]) {
-        if (item.kind === "list" && item.parentListId !== undefined) {
-            const parent = byId.get(item.parentListId);
-            if (parent && parent.kind === "list") {
-                parent.addChildList(item.id);
-            }
-        }
-    }
 
     return orderItemsForBacklog([...listItems, ...taskItems]);
 }
@@ -215,23 +202,5 @@ function deserializeSchedule(row: PostgresTaskRow): Schedule | undefined {
         startDate: row.schedule_start_date ? utcDateToDateKey(row.schedule_start_date) : undefined,
         endDate: row.schedule_end_date ? utcDateToDateKey(row.schedule_end_date) : undefined,
         defaultEndTime: row.schedule_default_end_time ?? undefined
-    });
-}
-
-export function taskRowsToDomainRow(row: PostgresTaskRow): TaskItem {
-    return TaskItem.reconstitute({
-        id: row.id as ItemId,
-        title: row.title,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
-        archived: row.archived,
-        description: row.description ?? undefined,
-        listIds: [],
-        priority: row.priority === null ? undefined : row.priority,
-        estimate: row.estimate ?? undefined,
-        repetition: deserializeRepetition(row),
-        schedule: deserializeSchedule(row),
-        status: row.status as ItemStatus,
-        persistentCompleted: row.persistent_completed
     });
 }

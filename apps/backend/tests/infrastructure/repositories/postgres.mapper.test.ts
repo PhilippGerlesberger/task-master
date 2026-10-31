@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { Backlog } from "../../../src/domain/backlog/Backlog.js";
 import { ListItem } from "../../../src/domain/backlogItem/ListItem.js";
 import { TaskItem } from "../../../src/domain/backlogItem/TaskItem.js";
 import { ItemStatus, RepetitionKind, type DateKey } from "../../../src/domain/shared/types.js";
@@ -17,7 +18,7 @@ describe("postgres mapper", () => {
         expect(hydrated[0].kind).toBe("list");
         expect(hydrated.find((item) => item.id === root.id)?.kind).toBe("list");
         expect((hydrated.find((item) => item.id === child.id) as ListItem).parentListId).toBe(root.id);
-        expect((hydrated.find((item) => item.id === root.id) as ListItem).childListIds).toContain(child.id);
+        expect((hydrated.find((item) => item.id === root.id) as ListItem).childListIds).toEqual([]);
     });
 
     it("round-trips a repeated task with schedule", () => {
@@ -92,6 +93,28 @@ describe("postgres mapper", () => {
             const date = dateKeyToUtcDate(value as DateKey);
             expect(date).toBeInstanceOf(Date);
             expect(utcDateToDateKey(date)).toBe(value);
+        }
+    });
+
+    it("builds backlog-safe domain output for 3-level hierarchy and multi-list task", () => {
+        const root = ListItem.create({ title: "Root" });
+        const child = ListItem.create({ title: "Child", parentId: root.id });
+        const grandChild = ListItem.create({ title: "Grand Child", parentId: child.id });
+        const task = TaskItem.create({
+            title: "Cross list task",
+            listIds: [child.id, grandChild.id]
+        });
+
+        const rows = toPersistenceRows([root, child, grandChild, task]);
+        const hydrated = toDomainItems(rows.listRows, rows.taskRows, rows.taskListRows);
+        const backlog = Backlog.fromItems(hydrated);
+
+        expect(backlog.getChildren(root.id).map((item) => item.id)).toEqual([child.id]);
+        expect(backlog.getChildren(child.id).map((item) => item.id)).toEqual([grandChild.id]);
+        const loadedTask = backlog.getItem(task.id);
+        expect(loadedTask?.kind).toBe("task");
+        if (loadedTask?.kind === "task") {
+            expect([...loadedTask.listIds].sort()).toEqual([child.id, grandChild.id].sort());
         }
     });
 });
