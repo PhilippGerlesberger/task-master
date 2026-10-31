@@ -6,12 +6,9 @@ import { JsonBacklogRepository } from "../infrastructure/repositories/JsonBacklo
 import { createApp } from "./app.js";
 
 const prisma = env.PERSISTENCE === "postgres" ? createPrismaClient(env.DATABASE_URL) : undefined;
-const backlogRepository =
-    env.PERSISTENCE === "postgres" && prisma
-        ? new PostgresBacklogRepository(prisma)
-        : new JsonBacklogRepository();
+const backlogRepository = prisma ? new PostgresBacklogRepository(prisma) : new JsonBacklogRepository();
 
-const app = createApp({ backlogRepository });
+const app = createApp({ backlogRepository, logger: true });
 
 if (prisma) {
     app.addHook("onClose", async () => {
@@ -25,10 +22,14 @@ const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
         await app.close();
         process.exit(0);
     } catch (error) {
-        app.log.error(error);
+        app.log.error({ err: error }, "Failed to shut down server");
         process.exit(1);
     }
 };
+
+process.on("SIGINT", () => {
+    void shutdown("SIGINT");
+});
 
 process.on("SIGTERM", () => {
     void shutdown("SIGTERM");
@@ -41,7 +42,8 @@ try {
 
     await app.listen({ port: env.PORT, host: "0.0.0.0" });
 } catch (error) {
-    app.log.error(error);
+    app.log.error({ err: error }, "Server startup failed");
+    console.error("Server startup failed.", error);
     if (prisma) {
         await prisma.$disconnect();
     }
