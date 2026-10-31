@@ -4,6 +4,7 @@ import { Backlog } from "../../../src/domain/backlog/Backlog.js";
 import { ListItem } from "../../../src/domain/backlogItem/ListItem.js";
 import { TaskItem } from "../../../src/domain/backlogItem/TaskItem.js";
 import { ItemStatus, Priority, RepetitionKind, type DateKey, type ItemId } from "../../../src/domain/shared/types.js";
+import { RepetitionPattern } from "../../../src/domain/shared/valueObjects.js";
 
 type RepositoryHarness = {
     repository: IBacklogRepository;
@@ -155,6 +156,60 @@ export function runBacklogRepositoryContract(
                 await cleanup();
             }
         });
+
+        it("round-trips through Backlog materialization without mutating snapshot timestamps", async () => {
+            const { repository, cleanup } = await createRepository();
+            try {
+                const timestamp = new Date("2026-08-30T10:00:00.000Z");
+                const root = ListItem.reconstitute({
+                    id: "01M7A4FVE0QZP08Z5W2P9X9R6F" as ItemId,
+                    title: "Root",
+                    createdAt: timestamp,
+                    updatedAt: timestamp,
+                    archived: false,
+                    childListIds: []
+                });
+                const child = ListItem.reconstitute({
+                    id: "01M7A4FVE0QZP08Z5W2P9X9R7G" as ItemId,
+                    title: "Child",
+                    createdAt: timestamp,
+                    updatedAt: timestamp,
+                    archived: false,
+                    parentListId: root.id,
+                    childListIds: []
+                });
+                const grandChild = ListItem.reconstitute({
+                    id: "01M7A4FVE0QZP08Z5W2P9X9R8H" as ItemId,
+                    title: "Grand Child",
+                    createdAt: timestamp,
+                    updatedAt: timestamp,
+                    archived: false,
+                    parentListId: child.id,
+                    childListIds: []
+                });
+                const task = TaskItem.reconstitute({
+                    id: "01M7A4FVE0QZP08Z5W2P9X9R9J" as ItemId,
+                    title: "Cross list task",
+                    createdAt: timestamp,
+                    updatedAt: timestamp,
+                    archived: false,
+                    listIds: [child.id, grandChild.id],
+                    repetition: RepetitionPattern.create({ kind: RepetitionKind.NONE }),
+                    status: ItemStatus.TODO,
+                    persistentCompleted: false
+                });
+
+                const savedSnapshot = Backlog.fromItems([root, child, grandChild, task]).toPersistenceModel();
+                await repository.saveBacklogItems(savedSnapshot);
+
+                const loadedSnapshot = await repository.loadBacklogItems();
+                const materialized = Backlog.fromItems(loadedSnapshot).toPersistenceModel();
+
+                expect(normalizePersistenceItems(materialized)).toEqual(normalizePersistenceItems(savedSnapshot));
+            } finally {
+                await cleanup();
+            }
+        });
     });
 }
 
@@ -182,6 +237,7 @@ type NormalizedItem = {
     createdAt: string;
     updatedAt: string;
     parentListId?: ItemId;
+    childListIds?: ItemId[];
     description?: string;
     listIds?: ItemId[];
     status?: ItemStatus;
@@ -218,6 +274,53 @@ function normalizeItems(items: readonly (ListItem | TaskItem)[]): NormalizedItem
                 return {
                     ...common,
                     parentListId: item.parentListId
+                } satisfies NormalizedItem;
+            }
+
+            return {
+                ...common,
+                description: item.description,
+                listIds: [...item.listIds].sort(),
+                status: item.status,
+                priority: item.priority,
+                estimate: item.estimate,
+                persistentCompleted: item.persistentCompleted,
+                repetition: {
+                    kind: item.repetition.kind,
+                    interval: item.repetition.interval,
+                    monthlyAnchor: item.repetition.monthlyAnchor,
+                    count: item.repetition.count,
+                    endDate: item.repetition.endDate
+                },
+                schedule: item.schedule
+                    ? {
+                        startDate: item.schedule.startDate,
+                        endDate: item.schedule.endDate,
+                        defaultEndTime: item.schedule.defaultEndTime
+                    }
+                    : undefined
+            } satisfies NormalizedItem;
+        })
+        .sort((left, right) => left.id.localeCompare(right.id));
+}
+
+function normalizePersistenceItems(items: readonly (ListItem | TaskItem)[]): NormalizedItem[] {
+    return [...items]
+        .map((item) => {
+            const common = {
+                kind: item.kind,
+                id: item.id,
+                title: item.title,
+                archived: item.archived,
+                createdAt: item.createdAt.toISOString(),
+                updatedAt: item.updatedAt.toISOString()
+            };
+
+            if (item.kind === "list") {
+                return {
+                    ...common,
+                    parentListId: item.parentListId,
+                    childListIds: [...item.childListIds].sort()
                 } satisfies NormalizedItem;
             }
 

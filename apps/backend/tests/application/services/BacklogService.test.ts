@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { BacklogService } from "../../../src/application/services/BacklogService.js";
+import { InfrastructureError } from "../../../src/application/errors.js";
 import { Backlog } from "../../../src/domain/backlog/Backlog.js";
 import { ListItem } from "../../../src/domain/backlogItem/ListItem.js";
 import { TaskItem } from "../../../src/domain/backlogItem/TaskItem.js";
 import type { ItemId } from "../../../src/domain/shared/types.js";
 import type { IBacklogRepository } from "../../../src/application/ports/IBacklogRepository.js";
+import { ItemStatus, RepetitionKind } from "../../../src/domain/shared/types.js";
+import { RepetitionPattern } from "../../../src/domain/shared/valueObjects.js";
 
 function createList(title: string) {
     return ListItem.create({ title });
@@ -48,5 +51,26 @@ describe("BacklogService", () => {
 
         expect(saveBacklogItems).toHaveBeenCalledTimes(1);
         expect(saveBacklogItems).toHaveBeenCalledWith(backlog.toPersistenceModel());
+    });
+
+    it("wraps inconsistent stored backlog as InfrastructureError", async () => {
+        const orphanTask = TaskItem.reconstitute({
+            id: "01M7A4FVE0QZP08Z5W2P9X9R3C" as ItemId,
+            title: "Broken task",
+            createdAt: new Date("2026-08-30T10:00:00.000Z"),
+            updatedAt: new Date("2026-08-30T10:00:00.000Z"),
+            archived: false,
+            listIds: [],
+            repetition: RepetitionPattern.create({ kind: RepetitionKind.NONE }),
+            status: ItemStatus.TODO,
+            persistentCompleted: false
+        });
+        const repository: IBacklogRepository = {
+            loadBacklogItems: vi.fn().mockResolvedValue([orphanTask]),
+            saveBacklogItems: vi.fn().mockResolvedValue(undefined)
+        };
+        const service = new BacklogService(repository);
+
+        await expect(service.loadBacklog()).rejects.toBeInstanceOf(InfrastructureError);
     });
 });

@@ -6,6 +6,8 @@ import type { ItemId } from "../../src/domain/shared/types.js";
 import type { BacklogItem } from "../../src/domain/backlogItem/BacklogItem.types.js";
 import type { IBacklogRepository } from "../../src/application/ports/IBacklogRepository.js";
 import { InfrastructureError } from "../../src/application/errors.js";
+import { ItemStatus, RepetitionKind } from "../../src/domain/shared/types.js";
+import { RepetitionPattern } from "../../src/domain/shared/valueObjects.js";
 
 function createList(title: string, parentId?: ItemId) {
     return ListItem.create({ title, parentId });
@@ -156,6 +158,33 @@ describe("createApp", () => {
             saveBacklogItems: vi.fn().mockResolvedValue(undefined)
         };
 
+        const app = createApp({ backlogRepository: repository });
+
+        try {
+            const response = await app.inject({ method: "GET", url: "/tasks" });
+            expect(response.statusCode).toBe(500);
+            expect(response.json()).toEqual({ message: "Internal Server Error" });
+        } finally {
+            await app.close();
+        }
+    });
+
+    it("returns 500 for inconsistent stored backlog data", async () => {
+        const invalidTask = TaskItem.reconstitute({
+            id: "01M7A4FVE0QZP08Z5W2P9X9R4D" as ItemId,
+            title: "Broken task",
+            createdAt: new Date("2026-08-30T10:00:00.000Z"),
+            updatedAt: new Date("2026-08-30T10:00:00.000Z"),
+            archived: false,
+            listIds: [],
+            repetition: RepetitionPattern.create({ kind: RepetitionKind.NONE }),
+            status: ItemStatus.TODO,
+            persistentCompleted: false
+        });
+        const repository: IBacklogRepository = {
+            loadBacklogItems: vi.fn().mockResolvedValue([invalidTask]),
+            saveBacklogItems: vi.fn().mockResolvedValue(undefined)
+        };
         const app = createApp({ backlogRepository: repository });
 
         try {
