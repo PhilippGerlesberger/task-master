@@ -102,4 +102,15 @@ describe("BacklogService", () => {
 
         expect(inboxLists).toHaveLength(1);
     });
+
+    it("rethrows non-domain errors from repository load", async () => {
+        const unexpectedError = new Error("database connection timeout");
+        const repository: IBacklogRepository = {
+            loadBacklogItems: vi.fn().mockRejectedValue(unexpectedError),
+            saveBacklogItems: vi.fn().mockResolvedValue(undefined)
+        };
+        const service = new BacklogService(repository);
+
+        await expect(service.loadBacklog()).rejects.toBe(unexpectedError);
+    });
 });

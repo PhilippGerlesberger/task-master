@@ -243,6 +243,23 @@ describe("createApp", () => {
         }
     });
 
+    it("returns 500 for unexpected errors", async () => {
+        const repository: IBacklogRepository = {
+            loadBacklogItems: vi.fn().mockRejectedValue(new Error("unexpected failure")),
+            saveBacklogItems: vi.fn().mockResolvedValue(undefined)
+        };
+
+        const app = createApp({ backlogRepository: repository });
+
+        try {
+            const response = await app.inject({ method: "GET", url: "/tasks" });
+            expect(response.statusCode).toBe(500);
+            expect(response.json()).toEqual({ message: "Internal Server Error" });
+        } finally {
+            await app.close();
+        }
+    });
+
     it("returns 500 for inconsistent stored backlog data", async () => {
         const invalidTask = TaskItem.reconstitute({
             id: "01M7A4FVE0QZP08Z5W2P9X9R4D" as ItemId,
